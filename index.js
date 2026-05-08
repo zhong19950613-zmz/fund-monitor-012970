@@ -5,15 +5,15 @@ const fs = require('fs');
 const GMAIL_USER = process.env.GMAIL_USER;
 const GMAIL_APP_PASSWORD = process.env.GMAIL_APP_PASSWORD;
 const TO_EMAIL = process.env.TO_EMAIL || GMAIL_USER;
+const PUSHPLUS_TOKEN = process.env.PUSHPLUS_TOKEN;
 
 // 监控的基金列表
-// 可以自由添加，格式：{ code: '基金代码', name: '基金名称' }
 const FUNDS = [
   { code: '012970', name: '鹏华国证半导体芯片ETF联接C' },
   { code: '510300', name: '沪深300ETF' }
 ];
 
-const THRESHOLD = 2.0; // 邮件提醒阈值
+const THRESHOLD = 2.0;
 
 async function getFundNetValue(code) {
   try {
@@ -24,6 +24,38 @@ async function getFundNetValue(code) {
   } catch (error) {
     console.error(`获取 ${code} 净值失败:`, error.message);
     return null;
+  }
+}
+
+// 微信推送 (PushPlus)
+async function sendWechatPush(fundData) {
+  if (!PUSHPLUS_TOKEN) {
+    console.log('PUSHPLUS_TOKEN 未设置，跳过微信推送');
+    return;
+  }
+  const change = parseFloat(fundData.gszzl);
+  const title = `【基金警报】${fundData.name} ${change > 0 ? '上涨' : '下跌'} ${Math.abs(change)}%`;
+  const content = `基金: ${fundData.name}\n净值: ${fundData.dwjz}\n涨跌: ${fundData.gszzl}%\n时间: ${fundData.gztime}`;
+
+  try {
+    const res = await fetch('https://www.pushplus.plus/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        token: PUSHPLUS_TOKEN,
+        title: title,
+        content: content,
+        template: 'txt'
+      })
+    });
+    const result = await res.json();
+    if (result.code === 200) {
+      console.log(`✅ 微信推送成功: ${fundData.name}`);
+    } else {
+      console.error('微信推送失败:', result.msg);
+    }
+  } catch (e) {
+    console.error('微信推送异常:', e.message);
   }
 }
 
@@ -70,19 +102,17 @@ async function processFund(fund) {
 
   console.log(`净值: ${data.dwjz} | 涨跌: ${data.gszzl}%`);
 
-  // 保存历史
   const history = loadHistory(fund.code);
   history.push({ date: data.jzrq, netValue: data.dwjz, change: data.gszzl, updateTime: data.gztime });
   if (history.length > 90) history.shift();
   saveHistory(fund.code, history);
 
-  // 邮件提醒
   const change = parseFloat(data.gszzl);
   if (Math.abs(change) >= THRESHOLD) {
+    await sendWechatPush({ ...data, name: fund.name });
     await sendEmailAlert({ ...data, name: fund.name });
   }
 
-  // 趋势分析
   const trend = analyzeTrend(history);
   console.log(`📈 建议: ${trend.suggestion}`);
 }
