@@ -7,7 +7,6 @@ const GMAIL_APP_PASSWORD = process.env.GMAIL_APP_PASSWORD;
 const TO_EMAIL = process.env.TO_EMAIL || GMAIL_USER;
 const PUSHPLUS_TOKEN = process.env.PUSHPLUS_TOKEN;
 
-// 监控的基金列表
 const FUNDS = [
   { code: '012970', name: '鹏华国证半导体芯片ETF联接C' },
   { code: '510300', name: '沪深300ETF' }
@@ -15,106 +14,81 @@ const FUNDS = [
 
 const THRESHOLD = 2.0;
 
-// 使用更稳定的 DoctorXiong API
 async function getFundNetValue(code) {
   try {
-    const response = await fetch(`https://api.doctorxiong.com/v1/fund?code=${code}`, {
-      timeout: 10000
-    });
-    const result = await response.json();
-
-    if (result.code !== 200 || !result.data || result.data.length === 0) {
-      throw new Error('接口返回异常');
-    }
-
-    const fund = result.data[0];
+    const res = await fetch(`https://api.doctorxiong.com/v1/fund?code=${code}`, { timeout: 8000 });
+    const json = await res.json();
+    if (json.code !== 200 || !json.data || json.data.length === 0) throw new Error('API error');
+    const f = json.data[0];
     return {
       fundcode: code,
-      name: fund.name,
-      dwjz: fund.netWorth,
-      gsz: fund.expectWorth || fund.netWorth,
-      gszzl: fund.expectGrowth || '0.00',
-      jzrq: fund.netWorthDate,
-      gztime: fund.expectWorthDate || fund.netWorthDate + ' 15:00'
+      name: f.name,
+      dwjz: f.netWorth,
+      gsz: f.expectWorth || f.netWorth,
+      gszzl: f.expectGrowth || '0',
+      jzrq: f.netWorthDate,
+      gztime: f.expectWorthDate || f.netWorthDate
     };
-  } catch (error) {
-    console.error(`获取 ${code} 净值失败:`, error.message);
+  } catch (e) {
+    console.error('Get fund data failed:', e.message);
     return null;
   }
 }
 
-// 微信推送 (PushPlus)
 async function sendWechatPush(fundData) {
-  if (!PUSHPLUS_TOKEN) {
-    console.log('PUSHPLUS_TOKEN 未设置，跳过微信推送');
-    return;
-    }
+  if (!PUSHPLUS_TOKEN) return;
   const change = parseFloat(fundData.gszzl);
-  const title = `【基金警报】${fundData.name} ${change > 0 ? '上涨' : '下跌'} ${Math.abs(change)}%`;
-  const content = `基金: ${fundData.name}\n净值: ${fundData.dwjz}\n涨跌: ${fundData.gszzl}%\n时间: ${fundData.gztime}`;
-
   try {
-    const res = await fetch('https://www.pushplus.plus/send', {
+    await fetch('https://www.pushplus.plus/send', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         token: PUSHPLUS_TOKEN,
-        title: title,
-        content: content,
+        title: `【基金警报】${fundData.name} ${change > 0 ? '上涨' : '下跌'} ${Math.abs(change)}%`,
+        content: `基金: ${fundData.name}\n净值: ${fundData.dwjz}\n涨跌: ${fundData.gszzl}%\n时间: ${fundData.gztime}`,
         template: 'txt'
       })
     });
-    const result = await res.json();
-    if (result.code === 200) {
-      console.log(`✅ 微信推送成功: ${fundData.name}`);
-    } else {
-      console.error('微信推送失败:', result.msg);
-    }
-  } catch (e) {
-    console.error('微信推送异常:', e.message);
-  }
+    console.log('WeChat sent:', fundData.name);
+  } catch (e) { console.error('WeChat push failed'); }
 }
 
 async function sendEmailAlert(fundData) {
   if (!GMAIL_USER || !GMAIL_APP_PASSWORD) return;
   const transporter = nodemailer.createTransport({ service: 'gmail', auth: { user: GMAIL_USER, pass: GMAIL_APP_PASSWORD } });
   const change = parseFloat(fundData.gszzl);
-  const subject = `【基金警报】${fundData.name} ${change > 0 ? '上涨' : '下跌'} ${Math.abs(change)}%`;
-  const html = `<h2>基金警报</h2><p><strong>基金:</strong> ${fundData.name}</p><p><strong>净值:</strong> ${fundData.dwjz}</p><p><strong>涨跌:</strong> <span style=\"color:${change > 0 ? 'green' : 'red'}\">${fundData.gszzl}%</span></p><p><strong>时间:</strong> ${fundData.gztime}</p>`;
   try {
-    await transporter.sendMail({ from: GMAIL_USER, to: TO_EMAIL, subject, html });
-    console.log(`✅ 邮件已发送: ${fundData.name}`);
-  } catch (e) { console.error('邮件发送失败:', e.message); }
+    await transporter.sendMail({
+      from: GMAIL_USER,
+      to: TO_EMAIL,
+      subject: `【基金警报】${fundData.name} ${change > 0 ? '上涨' : '下跌'} ${Math.abs(change)}%`,
+      html: `<h3>${fundData.name}</h3><p>净值: ${fundData.dwjz} | 涨跌: <b style="color:${change > 0 ? 'green' : 'red'}">${fundData.gszzl}%</b></p>`
+    });
+    console.log('Email sent:', fundData.name);
+  } catch (e) { console.error('Email failed'); }
 }
 
 function loadHistory(code) {
-  const file = `history-${code}.json`;
-  try {
-    if (fs.existsSync(file)) return JSON.parse(fs.readFileSync(file, 'utf8'));
-  } catch (e) {}\n  return [];
+  try { return JSON.parse(fs.readFileSync(`history-${code}.json`, 'utf8')); } catch { return []; }
 }
 
 function saveHistory(code, history) {
-  const file = `history-${code}.json`;
-  fs.writeFileSync(file, JSON.stringify(history, null, 2));
+  fs.writeFileSync(`history-${code}.json`, JSON.stringify(history, null, 2));
 }
 
 function analyzeTrend(history) {
-  if (history.length < 5) return { suggestion: '数据不足，建议继续积累数据', level: 'info' };
+  if (history.length < 5) return '数据不足';
   const last5 = history.slice(-5).map(h => parseFloat(h.change));
-  const avg5 = (last5.reduce((a, b) => a + b, 0) / last5.length).toFixed(2);
-  const upDays = last5.filter(c => c > 0).length;
-
-  if (upDays >= 4 && parseFloat(avg5) > 0.5) return { suggestion: '最近5天强势上涨，适合定投加仓', level: 'good' };
-  if (upDays <= 1 && parseFloat(avg5) < -0.5) return { suggestion: '最近5天偏弱，建议观望或小额定投', level: 'warn' };
-  return { suggestion: '趋势震荡，建议保持定投节奏', level: 'info' };
+  const up = last5.filter(c => c > 0).length;
+  if (up >= 4) return '最近5天强势，适合加仓';
+  if (up <= 1) return '最近5天偏弱，建议观望';
+  return '趋势震荡，保持定投';
 }
 
 async function processFund(fund) {
-  console.log(`\n=== 正在检查: ${fund.name} (${fund.code}) ===`);
+  console.log(`\n检查: ${fund.name}`);
   const data = await getFundNetValue(fund.code);
   if (!data) return;
-
   console.log(`净值: ${data.dwjz} | 涨跌: ${data.gszzl}%`);
 
   const history = loadHistory(fund.code);
@@ -124,20 +98,16 @@ async function processFund(fund) {
 
   const change = parseFloat(data.gszzl);
   if (Math.abs(change) >= THRESHOLD) {
-    await sendWechatPush({ ...data, name: fund.name });
-    await sendEmailAlert({ ...data, name: fund.name });
+    await sendWechatPush(data);
+    await sendEmailAlert(data);
   }
-
-  const trend = analyzeTrend(history);
-  console.log(`📈 建议: ${trend.suggestion}`);
+  console.log('建议:', analyzeTrend(history));
 }
 
 async function main() {
-  console.log('[' + new Date().toLocaleString('zh-CN') + '] 开始多基金监控...');
-  for (const fund of FUNDS) {
-    await processFund(fund);
-  }
-  console.log('\n所有基金检查完成');
+  console.log('开始监控...');
+  for (const fund of FUNDS) await processFund(fund);
+  console.log('完成');
 }
 
 main();
