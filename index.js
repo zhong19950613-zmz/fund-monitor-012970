@@ -15,12 +15,28 @@ const FUNDS = [
 
 const THRESHOLD = 2.0;
 
+// 使用更稳定的 DoctorXiong API
 async function getFundNetValue(code) {
   try {
-    const response = await fetch(`http://fundgz.1234567.com.cn/js/${code}.js`);
-    const text = await response.text();
-    const jsonStr = text.replace('jsonpgz(', '').replace(');', '');
-    return JSON.parse(jsonStr);
+    const response = await fetch(`https://api.doctorxiong.com/v1/fund?code=${code}`, {
+      timeout: 10000
+    });
+    const result = await response.json();
+
+    if (result.code !== 200 || !result.data || result.data.length === 0) {
+      throw new Error('接口返回异常');
+    }
+
+    const fund = result.data[0];
+    return {
+      fundcode: code,
+      name: fund.name,
+      dwjz: fund.netWorth,
+      gsz: fund.expectWorth || fund.netWorth,
+      gszzl: fund.expectGrowth || '0.00',
+      jzrq: fund.netWorthDate,
+      gztime: fund.expectWorthDate || fund.netWorthDate + ' 15:00'
+    };
   } catch (error) {
     console.error(`获取 ${code} 净值失败:`, error.message);
     return null;
@@ -32,7 +48,7 @@ async function sendWechatPush(fundData) {
   if (!PUSHPLUS_TOKEN) {
     console.log('PUSHPLUS_TOKEN 未设置，跳过微信推送');
     return;
-  }
+    }
   const change = parseFloat(fundData.gszzl);
   const title = `【基金警报】${fundData.name} ${change > 0 ? '上涨' : '下跌'} ${Math.abs(change)}%`;
   const content = `基金: ${fundData.name}\n净值: ${fundData.dwjz}\n涨跌: ${fundData.gszzl}%\n时间: ${fundData.gztime}`;
@@ -75,8 +91,7 @@ function loadHistory(code) {
   const file = `history-${code}.json`;
   try {
     if (fs.existsSync(file)) return JSON.parse(fs.readFileSync(file, 'utf8'));
-  } catch (e) {}
-  return [];
+  } catch (e) {}\n  return [];
 }
 
 function saveHistory(code, history) {
