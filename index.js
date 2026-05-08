@@ -14,37 +14,24 @@ const FUNDS = [
 
 const THRESHOLD = 2.0;
 
-// 带重试和超时的 fetch
-async function fetchWithRetry(url, options = {}, retries = 3) {
-  for (let i = 0; i < retries; i++) {
-    try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 10000);
-      const res = await fetch(url, { ...options, signal: controller.signal });
-      clearTimeout(timeout);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return await res.json();
-    } catch (e) {
-      console.log(`尝试 ${i + 1}/${retries} 失败: ${e.message}`);
-      if (i === retries - 1) throw e;
-      await new Promise(r => setTimeout(r, 1500));
-    }
-  }
-}
-
+// 新浪财经接口（更稳定）
 async function getFundNetValue(code) {
   try {
-    const json = await fetchWithRetry(`https://api.doctorxiong.com/v1/fund?code=${code}`);
-    if (json.code !== 200 || !json.data || json.data.length === 0) throw new Error('API error');
-    const f = json.data[0];
+    const res = await fetch(`https://hq.sinajs.cn/list=fund${code}`, {
+      headers: { 'Referer': 'https://finance.sina.com.cn' }
+    });
+    const text = await res.text();
+    const match = text.match(/="(.+)"/);
+    if (!match) throw new Error('解析失败');
+    const arr = match[1].split(',');
     return {
       fundcode: code,
-      name: f.name,
-      dwjz: f.netWorth,
-      gsz: f.expectWorth || f.netWorth,
-      gszzl: f.expectGrowth || '0',
-      jzrq: f.netWorthDate,
-      gztime: f.expectWorthDate || f.netWorthDate
+      name: arr[0],
+      dwjz: arr[1],
+      gsz: arr[2] || arr[1],
+      gszzl: arr[3] || '0',
+      jzrq: arr[4],
+      gztime: arr[5] || arr[4]
     };
   } catch (e) {
     console.error(`${code} 获取失败:`, e.message);
