@@ -1,0 +1,12 @@
+{
+  "name": "fund-monitor-012970",
+  "version": "1.0.0",
+  "description": "Daily monitor for 012970 semiconductor ETF",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "node-fetch": "^2.7.0"
+  }
+}
