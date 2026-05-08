@@ -14,24 +14,6 @@ const FUNDS = [
 
 const THRESHOLD = 2.0;
 
-// 带重试和超时的 fetch
-async function fetchWithRetry(url, options = {}, retries = 3) {
-  for (let i = 0; i < retries; i++) {
-    try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 10000);
-      const res = await fetch(url, { ...options, signal: controller.signal });
-      clearTimeout(timeout);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return await res.text();
-    } catch (e) {
-      console.log(`尝试 ${i + 1}/${retries} 失败: ${e.message}`);
-      if (i === retries - 1) throw e;
-      await new Promise(r => setTimeout(r, 1500));
-    }
-  }
-}
-
 async function getFundNetValue(code) {
   try {
     const text = await fetchWithRetry(`http://fundgz.1234567.com.cn/js/${code}.js`);
@@ -52,22 +34,53 @@ async function getFundNetValue(code) {
   }
 }
 
+// 带重试和超时的 fetch
+async function fetchWithRetry(url, options = {}, retries = 3) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000);
+      const res = await fetch(url, { ...options, signal: controller.signal });
+      clearTimeout(timeout);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.text();
+    } catch (e) {
+      console.log(`尝试 ${i + 1}/${retries} 失败: ${e.message}`);
+      if (i === retries - 1) throw e;
+      await new Promise(r => setTimeout(r, 1500));
+    }
+  }
+}
+
 async function sendWechatPush(fundData) {
-  if (!PUSHPLUS_TOKEN) return;
+  if (!PUSHPLUS_TOKEN) {
+    console.log('PUSHPLUS_TOKEN 未设置');
+    return;
+  }
   const change = parseFloat(fundData.gszzl);
+  const title = `【基金警报】${fundData.name} ${change > 0 ? '上涨' : '下跌'} ${Math.abs(change)}%`;
+  const content = `基金: ${fundData.name}<br>净值: ${fundData.dwjz}<br>涨跌: ${fundData.gszzl}%<br>时间: ${fundData.gztime}`;
+
   try {
-    await fetch('https://www.pushplus.plus/send', {
+    const res = await fetch('https://www.pushplus.plus/send', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         token: PUSHPLUS_TOKEN,
-        title: `【基金警报】${fundData.name} ${change > 0 ? '上涨' : '下跌'} ${Math.abs(change)}%`,
-        content: `基金: ${fundData.name}\n净值: ${fundData.dwjz}\n涨跌: ${fundData.gszzl}%\n时间: ${fundData.gztime}`,
-        template: 'txt'
+        title: title,
+        content: content,
+        template: 'html'
       })
     });
-    console.log('✅ 微信推送成功:', fundData.name);
-  } catch (e) { console.error('微信推送失败'); }
+    const result = await res.json();
+    if (result.code === 200) {
+      console.log('✅ 微信推送成功:', fundData.name);
+    } else {
+      console.error('微信推送失败:', result.msg || result);
+    }
+  } catch (e) {
+    console.error('微信推送异常:', e.message);
+  }
 }
 
 async function sendEmailAlert(fundData) {
