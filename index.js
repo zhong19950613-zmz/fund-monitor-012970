@@ -14,24 +14,37 @@ const FUNDS = [
 
 const THRESHOLD = 2.0;
 
-// 新浪财经接口（更稳定）
+// 带重试和超时的 fetch
+async function fetchWithRetry(url, options = {}, retries = 3) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000);
+      const res = await fetch(url, { ...options, signal: controller.signal });
+      clearTimeout(timeout);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.text();
+    } catch (e) {
+      console.log(`尝试 ${i + 1}/${retries} 失败: ${e.message}`);
+      if (i === retries - 1) throw e;
+      await new Promise(r => setTimeout(r, 1500));
+    }
+  }
+}
+
 async function getFundNetValue(code) {
   try {
-    const res = await fetch(`https://hq.sinajs.cn/list=fund${code}`, {
-      headers: { 'Referer': 'https://finance.sina.com.cn' }
-    });
-    const text = await res.text();
-    const match = text.match(/="(.+)"/);
-    if (!match) throw new Error('解析失败');
-    const arr = match[1].split(',');
+    const text = await fetchWithRetry(`http://fundgz.1234567.com.cn/js/${code}.js`);
+    const jsonStr = text.replace('jsonpgz(', '').replace(');', '');
+    const data = JSON.parse(jsonStr);
     return {
       fundcode: code,
-      name: arr[0],
-      dwjz: arr[1],
-      gsz: arr[2] || arr[1],
-      gszzl: arr[3] || '0',
-      jzrq: arr[4],
-      gztime: arr[5] || arr[4]
+      name: data.name,
+      dwjz: data.dwjz,
+      gsz: data.gsz || data.dwjz,
+      gszzl: data.gszzl || '0',
+      jzrq: data.jzrq,
+      gztime: data.gztime
     };
   } catch (e) {
     console.error(`${code} 获取失败:`, e.message);
