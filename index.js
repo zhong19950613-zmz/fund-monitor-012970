@@ -1,91 +1,92 @@
 const fetch = require('node-fetch');
 const nodemailer = require('nodemailer');
+const fs = require('fs');
 
-// 从 GitHub Secrets 获取邮箱配置
 const GMAIL_USER = process.env.GMAIL_USER;
 const GMAIL_APP_PASSWORD = process.env.GMAIL_APP_PASSWORD;
 const TO_EMAIL = process.env.TO_EMAIL || GMAIL_USER;
+const HISTORY_FILE = 'history.json';
 
-/**
- * 获取 012970 鹏华国证半导体芯片ETF联接C 最新净值
- */
+// 获取基金净值
 async function getFundNetValue() {
   try {
     const response = await fetch('http://fundgz.1234567.com.cn/js/012970.js');
     const text = await response.text();
     const jsonStr = text.replace('jsonpgz(', '').replace(');', '');
-    const data = JSON.parse(jsonStr);
-    return data;
+    return JSON.parse(jsonStr);
   } catch (error) {
     console.error('获取净值失败:', error.message);
     return null;
   }
 }
 
-/**
- * 发送邮件提醒
- */
+// 发送邮件
 async function sendEmailAlert(fundData) {
-  if (!GMAIL_USER || !GMAIL_APP_PASSWORD) {
-    console.log('邮箱配置未设置，跳过邮件发送');
-    return;
-  }
-
-  const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-      user: GMAIL_USER,
-      pass: GMAIL_APP_PASSWORD
-    }
-  });
-
+  if (!GMAIL_USER || !GMAIL_APP_PASSWORD) return;
+  const transporter = nodemailer.createTransport({ service: 'gmail', auth: { user: GMAIL_USER, pass: GMAIL_APP_PASSWORD } });
   const change = parseFloat(fundData.gszzl);
   const subject = `【基金警报】${fundData.name} ${change > 0 ? '上涨' : '下跌'} ${Math.abs(change)}%`;
-
-  const html = `
-    <h2>基金警报</h2>
-    <p><strong>基金名称:</strong> ${fundData.name}</p>
-    <p><strong>日期:</strong> ${fundData.jzrq}</p>
-    <p><strong>单位净值:</strong> ${fundData.dwjz}</p>
-    <p><strong>估算涨跌:</strong> <span style="color:${change > 0 ? 'green' : 'red'}">${fundData.gszzl}%</span></p>
-    <p><strong>更新时间:</strong> ${fundData.gztime}</p>
-    <hr>
-    <p style="color:#666;font-size:12px">此邮件由自动化监控系统发送</p>
-  `;
-
+  const html = `<h2>基金警报</h2><p><strong>基金:</strong> ${fundData.name}</p><p><strong>净值:</strong> ${fundData.dwjz}</p><p><strong>涨跌:</strong> <span style="color:${change > 0 ? 'green' : 'red'}">${fundData.gszzl}%</span></p><p><strong>时间:</strong> ${fundData.gztime}</p>`;
   try {
-    await transporter.sendMail({
-      from: GMAIL_USER,
-      to: TO_EMAIL,
-      subject: subject,
-      html: html
-    });
-    console.log('✅ 邮件发送成功');
-  } catch (error) {
-    console.error('邮件发送失败:', error.message);
-  }
+    await transporter.sendMail({ from: GMAIL_USER, to: TO_EMAIL, subject, html });
+    console.log('✅ 邮件已发送');
+  } catch (e) { console.error('邮件发送失败:', e.message); }
 }
 
-/**
- * 主函数
- */
-async function main() {
-  console.log('[' + new Date().toLocaleString('zh-CN') + '] 开始检查净值...');
-  const fundData = await getFundNetValue();
-
-  if (fundData) {
-    console.log(`基金: ${fundData.name} | 估算涨跌: ${fundData.gszzl}%`);
-
-    const change = parseFloat(fundData.gszzl);
-
-    // 涨跌幅超过 2% 时发送邮件提醒
-    if (Math.abs(change) >= 2.0) {
-      console.log(`⚠️ 涨跌幅达到 ${change}%，发送邮件提醒...`);
-      await sendEmailAlert(fundData);
-    } else {
-      console.log('涨跌幅小于 2%，不发送邮件');
+// 读取历史数据
+function loadHistory() {
+  try {
+    if (fs.existsSync(HISTORY_FILE)) {
+      return JSON.parse(fs.readFileSync(HISTORY_FILE, 'utf8'));
     }
+  } catch (e) {}
+  return [];
+}
+
+// 保存历史数据
+function saveHistory(history) {
+  fs.writeFileSync(HISTORY_FILE, JSON.stringify(history, null, 2));
+}
+
+// 简单趋势分析
+function analyzeTrend(history) {
+  if (history.length < 3) return '数据不足，无法判断趋势';
+  const last3 = history.slice(-3).map(h => parseFloat(h.change));
+  const upDays = last3.filter(c => c > 0).length;
+  if (upDays === 3) return '最近3天持续上涨，趋势向好，可考虑定投加仓';
+  if (upDays === 0) return '最近3天持续下跌，建议观望';
+  return '趋势震荡，建议继续观察';
+}
+
+// 主函数
+async function main() {
+  console.log('[' + new Date().toLocaleString('zh-CN') + '] 开始检查...');
+  const fundData = await getFundNetValue();
+  if (!fundData) return;
+
+  console.log(`基金: ${fundData.name} | 涨跌: ${fundData.gszzl}%`);
+
+  // 保存历史
+  const history = loadHistory();
+  history.push({
+    date: fundData.jzrq,
+    netValue: fundData.dwjz,
+    change: fundData.gszzl,
+    updateTime: fundData.gztime
+  });
+  // 只保留最近90天
+  if (history.length > 90) history.shift();
+  saveHistory(history);
+
+  // 邮件提醒
+  const change = parseFloat(fundData.gszzl);
+  if (Math.abs(change) >= 2.0) {
+    await sendEmailAlert(fundData);
   }
+
+  // 趋势判断
+  const trend = analyzeTrend(history);
+  console.log('📈 趋势判断: ' + trend);
 
   console.log('检查完成');
 }
