@@ -14,10 +14,27 @@ const FUNDS = [
 
 const THRESHOLD = 2.0;
 
+// 带重试和超时的 fetch
+async function fetchWithRetry(url, options = {}, retries = 3) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000);
+      const res = await fetch(url, { ...options, signal: controller.signal });
+      clearTimeout(timeout);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (e) {
+      console.log(`尝试 ${i + 1}/${retries} 失败: ${e.message}`);
+      if (i === retries - 1) throw e;
+      await new Promise(r => setTimeout(r, 1500));
+    }
+  }
+}
+
 async function getFundNetValue(code) {
   try {
-    const res = await fetch(`https://api.doctorxiong.com/v1/fund?code=${code}`, { timeout: 8000 });
-    const json = await res.json();
+    const json = await fetchWithRetry(`https://api.doctorxiong.com/v1/fund?code=${code}`);
     if (json.code !== 200 || !json.data || json.data.length === 0) throw new Error('API error');
     const f = json.data[0];
     return {
@@ -30,7 +47,7 @@ async function getFundNetValue(code) {
       gztime: f.expectWorthDate || f.netWorthDate
     };
   } catch (e) {
-    console.error('Get fund data failed:', e.message);
+    console.error(`${code} 获取失败:`, e.message);
     return null;
   }
 }
@@ -49,8 +66,8 @@ async function sendWechatPush(fundData) {
         template: 'txt'
       })
     });
-    console.log('WeChat sent:', fundData.name);
-  } catch (e) { console.error('WeChat push failed'); }
+    console.log('✅ 微信推送成功:', fundData.name);
+  } catch (e) { console.error('微信推送失败'); }
 }
 
 async function sendEmailAlert(fundData) {
@@ -62,10 +79,10 @@ async function sendEmailAlert(fundData) {
       from: GMAIL_USER,
       to: TO_EMAIL,
       subject: `【基金警报】${fundData.name} ${change > 0 ? '上涨' : '下跌'} ${Math.abs(change)}%`,
-      html: `<h3>${fundData.name}</h3><p>净值: ${fundData.dwjz} | 涨跌: <b style="color:${change > 0 ? 'green' : 'red'}">${fundData.gszzl}%</b></p>`
+      html: `<h3>${fundData.name}</h3><p>净值: ${fundData.dwjz} | 涨跌: <b style=\"color:${change > 0 ? 'green' : 'red'}\">${fundData.gszzl}%</b></p>`
     });
-    console.log('Email sent:', fundData.name);
-  } catch (e) { console.error('Email failed'); }
+    console.log('✅ 邮件已发送:', fundData.name);
+  } catch (e) { console.error('邮件发送失败'); }
 }
 
 function loadHistory(code) {
@@ -86,7 +103,7 @@ function analyzeTrend(history) {
 }
 
 async function processFund(fund) {
-  console.log(`\n检查: ${fund.name}`);
+  console.log(`\n检查: ${fund.name} (${fund.code})`);
   const data = await getFundNetValue(fund.code);
   if (!data) return;
   console.log(`净值: ${data.dwjz} | 涨跌: ${data.gszzl}%`);
@@ -105,8 +122,10 @@ async function processFund(fund) {
 }
 
 async function main() {
-  console.log('开始监控...');
-  for (const fund of FUNDS) await processFund(fund);
+  console.log('[' + new Date().toLocaleString('zh-CN') + '] 开始多基金监控...');
+  for (const fund of FUNDS) {
+    await processFund(fund);
+  }
   console.log('完成');
 }
 
