@@ -1,0 +1,24 @@
+name: Daily Fund Monitor
+
+on:
+  schedule:
+    - cron: '0 10 * * *'   # 每日 18:00 北京时间 (UTC 10:00)
+  workflow_dispatch:     # 支持手动触发
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Install dependencies
+      run: npm install node-fetch@2
+
+    - name: Run monitor
+      run: node index.js
