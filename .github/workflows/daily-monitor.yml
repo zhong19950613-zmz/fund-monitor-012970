@@ -4,13 +4,15 @@ on:
   schedule:
     - cron: '0 10 * * *'
   workflow_dispatch:
+    inputs:
+      force_refresh:
+        description: 'Force refresh secrets'
+        required: false
+        default: 'true'
 
 jobs:
   monitor:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-
     steps:
     - uses: actions/checkout@v4
 
@@ -22,17 +24,14 @@ jobs:
     - name: Install dependencies
       run: npm install
 
+    - name: Debug secrets
+      run: |
+        echo "SERVERCHAN_KEY length: ${{ secrets.SERVERCHAN_KEY != '' && 'SET' || 'NOT SET' }}"
+
     - name: Run monitor
       env:
         GMAIL_USER: ${{ secrets.GMAIL_USER }}
         GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
         TO_EMAIL: ${{ secrets.TO_EMAIL }}
+        SERVERCHAN_KEY: ${{ secrets.SERVERCHAN_KEY }}
       run: node index.js
-
-    - name: Commit history
-      run: |
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
-        git add history.json
-        git commit -m "Update fund history [$(date +'%Y-%m-%d')]" || echo "No changes to commit"
-        git push
