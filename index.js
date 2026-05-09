@@ -5,7 +5,7 @@ const fs = require('fs');
 const GMAIL_USER = process.env.GMAIL_USER;
 const GMAIL_APP_PASSWORD = process.env.GMAIL_APP_PASSWORD;
 const TO_EMAIL = process.env.TO_EMAIL || GMAIL_USER;
-const PUSHPLUS_TOKEN = process.env.PUSHPLUS_TOKEN;
+const SERVERCHAN_KEY = process.env.SERVERCHAN_KEY;
 
 const FUNDS = [
   { code: '012970', name: '鹏华国证半导体芯片ETF联接C' },
@@ -13,6 +13,24 @@ const FUNDS = [
 ];
 
 const THRESHOLD = 2.0;
+
+// 带重试和超时的 fetch
+async function fetchWithRetry(url, options = {}, retries = 3) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000);
+      const res = await fetch(url, { ...options, signal: controller.signal });
+      clearTimeout(timeout);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.text();
+    } catch (e) {
+      console.log(`尝试 ${i + 1}/${retries} 失败: ${e.message}`);
+      if (i === retries - 1) throw e;
+      await new Promise(r => setTimeout(r, 1500));
+    }
+  }
+}
 
 async function getFundNetValue(code) {
   try {
@@ -34,49 +52,27 @@ async function getFundNetValue(code) {
   }
 }
 
-// 带重试和超时的 fetch
-async function fetchWithRetry(url, options = {}, retries = 3) {
-  for (let i = 0; i < retries; i++) {
-    try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 10000);
-      const res = await fetch(url, { ...options, signal: controller.signal });
-      clearTimeout(timeout);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return await res.text();
-    } catch (e) {
-      console.log(`尝试 ${i + 1}/${retries} 失败: ${e.message}`);
-      if (i === retries - 1) throw e;
-      await new Promise(r => setTimeout(r, 1500));
-    }
-  }
-}
-
+// Server酱 微信推送
 async function sendWechatPush(fundData) {
-  if (!PUSHPLUS_TOKEN) {
-    console.log('PUSHPLUS_TOKEN 未设置');
+  if (!SERVERCHAN_KEY) {
+    console.log('SERVERCHAN_KEY 未设置');
     return;
   }
   const change = parseFloat(fundData.gszzl);
   const title = `【基金警报】${fundData.name} ${change > 0 ? '上涨' : '下跌'} ${Math.abs(change)}%`;
-  const content = `基金: ${fundData.name}<br>净值: ${fundData.dwjz}<br>涨跌: ${fundData.gszzl}%<br>时间: ${fundData.gztime}`;
+  const desp = `基金: ${fundData.name}\n净值: ${fundData.dwjz}\n涨跌: ${fundData.gszzl}%\n时间: ${fundData.gztime}`;
 
   try {
-    const res = await fetch('https://www.pushplus.plus/send', {
+    const res = await fetch(`https://sctapi.ftqq.com/${SERVERCHAN_KEY}.send`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        token: PUSHPLUS_TOKEN,
-        title: title,
-        content: content,
-        template: 'html'
-      })
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `title=${encodeURIComponent(title)}&desp=${encodeURIComponent(desp)}`
     });
     const result = await res.json();
-    if (result.code === 200) {
-      console.log('✅ 微信推送成功:', fundData.name);
+    if (result.errno === 0) {
+      console.log('✅ 微信推送成功 (Server酱):', fundData.name);
     } else {
-      console.error('微信推送失败:', result.msg || result);
+      console.error('微信推送失败:', result.errmsg);
     }
   } catch (e) {
     console.error('微信推送异常:', e.message);
@@ -92,7 +88,7 @@ async function sendEmailAlert(fundData) {
       from: GMAIL_USER,
       to: TO_EMAIL,
       subject: `【基金警报】${fundData.name} ${change > 0 ? '上涨' : '下跌'} ${Math.abs(change)}%`,
-      html: `<h3>${fundData.name}</h3><p>净值: ${fundData.dwjz} | 涨跌: <b style=\"color:${change > 0 ? 'green' : 'red'}\">${fundData.gszzl}%</b></p>`
+      html: `<h3>${fundData.name}</h3><p>净值: ${fundData.dwjz} | 涨跌: <b style="color:${change > 0 ? 'green' : 'red'}">${fundData.gszzl}%</b></p>`
     });
     console.log('✅ 邮件已发送:', fundData.name);
   } catch (e) { console.error('邮件发送失败'); }
