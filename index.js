@@ -53,14 +53,7 @@ function calculateEMA(prices, period) {
 
 function getSmartSuggestion(history) {
   if (history.length < 20) {
-    return {
-      score: 5,
-      action: '观望',
-      amount: 30,
-      target: null,
-      stopLoss: null,
-      reason: '数据不足，建议继续定投'
-    };
+    return { score: 5, action: '观望', amount: 30, target: null, stopLoss: null, reason: '数据不足' };
   }
 
   const prices = history.map(h => parseFloat(h.netValue));
@@ -85,7 +78,6 @@ function getSmartSuggestion(history) {
   if (last5Up >= 4 && avg5 > 0.8) { score += 2; reasons.push('短期强势'); }
   else if (last5Up <= 1 && avg5 < -0.8) { score -= 1.5; reasons.push('短期偏弱'); }
 
-  // 计算建议金额和目标
   let action = '观望';
   let amount = 30;
   let target = null;
@@ -120,6 +112,52 @@ function getSmartSuggestion(history) {
     reason: reasons.join(' + '),
     rsi: rsi ? rsi.toFixed(1) : '-',
     macd: macd ? macd.toFixed(4) : '-'
+  };
+}
+
+// ==================== 策略回测 ====================
+
+function runBacktest(history, fundName) {
+  if (history.length < 30) {
+    return { message: '数据不足，无法回测' };
+  }
+
+  let signalReturns = 0;
+  let holdReturns = 0;
+  let position = 0;
+  let buyPrice = 0;
+
+  const prices = history.map(h => parseFloat(h.netValue));
+
+  for (let i = 20; i < history.length; i++) {
+    const tempHistory = history.slice(0, i + 1);
+    const smart = getSmartSuggestion(tempHistory);
+    const currentPrice = prices[i];
+
+    if (smart.action === '买入' || smart.action === '加仓') {
+      if (position === 0) {
+        buyPrice = currentPrice;
+        position = 1;
+      }
+    } else if (smart.action === '减仓' && position === 1) {
+      signalReturns += (currentPrice - buyPrice) / buyPrice;
+      position = 0;
+    }
+
+    // 买入持有收益
+    if (i === 20) buyPrice = currentPrice;
+    holdReturns = (currentPrice - buyPrice) / buyPrice;
+  }
+
+  const signalReturnPct = (signalReturns * 100).toFixed(1);
+  const holdReturnPct = (holdReturns * 100).toFixed(1);
+  const diff = (parseFloat(signalReturnPct) - parseFloat(holdReturnPct)).toFixed(1);
+
+  return {
+    signalReturn: signalReturnPct,
+    holdReturn: holdReturnPct,
+    difference: diff,
+    conclusion: parseFloat(diff) > 0 ? '系统策略优于手动持有' : '手动持有更优'
   };
 }
 
@@ -226,6 +264,13 @@ async function processFund(fund) {
   console.log(`📊 RSI: ${smart.rsi} | MACD: ${smart.macd} | 评分: ${smart.score}/10`);
   console.log(`💡 操作: ${smart.action} ${smart.amount}元 | 目标: ${smart.target || '-'} | 止损: ${smart.stopLoss || '-'}`);
 
+  // 回测
+  const backtest = runBacktest(history, fund.name);
+  if (backtest.signalReturn) {
+    console.log(`📈 回测结果: 信号策略 ${backtest.signalReturn}% | 手动持有 ${backtest.holdReturn}% | 差异 ${backtest.difference}%`);
+    console.log(`结论: ${backtest.conclusion}`);
+  }
+
   await sendWechatPush(data, smart);
 
   const change = parseFloat(data.gszzl);
@@ -235,7 +280,7 @@ async function processFund(fund) {
 }
 
 async function main() {
-  console.log('[' + new Date().toLocaleString('zh-CN') + '] 开始精准交易信号...');
+  console.log('[' + new Date().toLocaleString('zh-CN') + '] 开始精准交易信号 + 回测...');
   for (const fund of FUNDS) {
     await processFund(fund);
   }
