@@ -115,36 +115,42 @@ function getSmartSuggestion(history) {
   };
 }
 
-// ==================== 每周总结报告 ====================
+// ==================== 风险控制模块 ====================
 
-function generateWeeklyReport() {
-  let report = '【本周基金总结】\n\n';
-  let totalReturn = 0;
-  let bestFund = '';
-  let bestReturn = -999;
+function calculateMaxDrawdown(history) {
+  if (history.length < 2) return 0;
+  let maxDrawdown = 0;
+  let peak = parseFloat(history[0].netValue);
 
-  for (const fund of FUNDS) {
-    const history = loadHistory(fund.code);
-    if (history.length < 2) continue;
+  for (let i = 1; i < history.length; i++) {
+    const price = parseFloat(history[i].netValue);
+    if (price > peak) peak = price;
+    const drawdown = ((peak - price) / peak) * 100;
+    if (drawdown > maxDrawdown) maxDrawdown = drawdown;
+  }
+  return parseFloat(maxDrawdown.toFixed(1));
+}
 
-    const firstPrice = parseFloat(history[0].netValue);
-    const lastPrice = parseFloat(history[history.length - 1].netValue);
-    const returnPct = ((lastPrice - firstPrice) / firstPrice * 100).toFixed(1);
-
-    report += `${fund.name}: ${returnPct}%\n`;
-
-    if (parseFloat(returnPct) > bestReturn) {
-      bestReturn = parseFloat(returnPct);
-      bestFund = fund.name;
-    }
-    totalReturn += parseFloat(returnPct);
+function getRiskControl(history, fundName) {
+  if (history.length < 10) {
+    return { maxDrawdown: 0, riskScore: 5, warning: '数据不足' };
   }
 
-  report += `\n本周总收益: ${totalReturn.toFixed(1)}%\n`;
-  report += `表现最佳: ${bestFund} (${bestReturn}%)\n`;
-  report += `\n下周建议: 继续观察信号，严格执行！`;
+  const maxDrawdown = calculateMaxDrawdown(history);
+  const latestChange = parseFloat(history[history.length - 1].change);
 
-  return report;
+  let riskScore = 5;
+  let warning = '';
+
+  if (maxDrawdown > 15) { riskScore += 2; warning = '最大回撤过大'; }
+  if (latestChange < -5) { riskScore += 2; warning = '单日大跌警告'; }
+  if (maxDrawdown > 10 && latestChange < -3) { riskScore += 1; warning = '高风险状态'; }
+
+  return {
+    maxDrawdown,
+    riskScore: Math.min(riskScore, 10),
+    warning: warning || '风险可控'
+  };
 }
 
 // ==================== 主流程 ====================
@@ -186,7 +192,7 @@ async function fetchWithRetry(url, options = {}, retries = 3) {
   }
 }
 
-async function sendWechatPush(fundData, smart) {
+async function sendWechatPush(fundData, smart, risk = null) {
   if (!SERVERCHAN_KEY) return;
   const change = parseFloat(fundData.gszzl);
   let title = `【今日信号】${fundData.name} ${change > 0 ? '上涨' : '下跌'} ${Math.abs(change)}%`;
@@ -194,7 +200,11 @@ async function sendWechatPush(fundData, smart) {
 
   if (smart.target) desp += `目标价: ${smart.target}\n`;
   if (smart.stopLoss) desp += `止损价: ${smart.stopLoss}\n`;
-  desp += `评分: ${smart.score}/10\n理由: ${smart.reason}`;
+  desp += `评分: ${smart.score}/10\n理由: ${smart.reason}\n`;
+
+  if (risk) {
+    desp += `\n【风险控制】\n最大回撤: ${risk.maxDrawdown}%\n风险评分: ${risk.riskScore}/10\n状态: ${risk.warning}`;
+  }
 
   try {
     await fetch(`https://sctapi.ftqq.com/${SERVERCHAN_KEY}.send`, {
@@ -206,7 +216,7 @@ async function sendWechatPush(fundData, smart) {
   } catch (e) { console.error('微信推送失败'); }
 }
 
-async function sendEmailAlert(fundData, smart) {
+async function sendEmailAlert(fundData, smart, risk = null) {
   if (!GMAIL_USER || !GMAIL_APP_PASSWORD) return;
   const transporter = nodemailer.createTransport({ service: 'gmail', auth: { user: GMAIL_USER, pass: GMAIL_APP_PASSWORD } });
   const change = parseFloat(fundData.gszzl);
@@ -215,6 +225,10 @@ async function sendEmailAlert(fundData, smart) {
   if (smart.target) html += `<p><b>目标价:</b> ${smart.target}</p>`;
   if (smart.stopLoss) html += `<p><b>止损价:</b> ${smart.stopLoss}</p>`;
   html += `<p><b>评分:</b> ${smart.score}/10 | <b>理由:</b> ${smart.reason}</p>`;
+
+  if (risk) {
+    html += `<p><b>风险控制:</b> 最大回撤 ${risk.maxDrawdown}% | 风险评分 ${risk.riskScore}/10 | ${risk.warning}</p>`;
+  }
 
   try {
     await transporter.sendMail({
@@ -247,23 +261,25 @@ async function processFund(fund) {
   saveHistory(fund.code, history);
 
   const smart = getSmartSuggestion(history);
+  const risk = getRiskControl(history, fund.name);
+
   console.log(`📊 RSI: ${smart.rsi} | MACD: ${smart.macd} | 评分: ${smart.score}/10`);
   console.log(`💡 操作: ${smart.action} ${smart.amount}元 | 目标: ${smart.target || '-'} | 止损: ${smart.stopLoss || '-'}`);
+  console.log(`⚠️ 风险: 最大回撤 ${risk.maxDrawdown}% | 风险评分 ${risk.riskScore}/10 | ${risk.warning}`);
 
-  await sendWechatPush(data, smart);
+  await sendWechatPush(data, smart, risk);
 
   const change = parseFloat(data.gszzl);
   if (Math.abs(change) >= THRESHOLD) {
-    await sendEmailAlert(data, smart);
+    await sendEmailAlert(data, smart, risk);
   }
 }
 
 async function main() {
-  console.log('[' + new Date().toLocaleString('zh-CN') + '] 开始精准交易信号...');
+  console.log('[' + new Date().toLocaleString('zh-CN') + '] 开始精准交易信号 + 风险控制...');
 
   const today = new Date().getDay();
 
-  // 每周日发送总结报告
   if (today === 0) {
     const weeklyReport = generateWeeklyReport();
     if (SERVERCHAN_KEY) {
