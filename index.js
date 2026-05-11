@@ -37,7 +37,6 @@ function calculateMACD(prices, fast = 12, slow = 26, signal = 9) {
   const emaFast = calculateEMA(prices, fast);
   const emaSlow = calculateEMA(prices, slow);
   const macdLine = emaFast - emaSlow;
-  // 简化处理：返回MACD柱状图值
   return parseFloat(macdLine.toFixed(4));
 }
 
@@ -68,20 +67,16 @@ function getSmartSuggestion(history) {
   let score = 5;
   let reasons = [];
 
-  // RSI 评分
   if (rsi < 30) { score += 2; reasons.push('RSI超卖'); }
   else if (rsi > 70) { score -= 1.5; reasons.push('RSI超买'); }
   else { score += 0.5; }
 
-  // MACD 评分
   if (macd > 0) { score += 1.5; reasons.push('MACD金叉趋势向上'); }
   else { score -= 1; reasons.push('MACD死叉趋势向下'); }
 
-  // 短期趋势
   if (last5Up >= 4 && avg5 > 0.8) { score += 2; reasons.push('短期强势上涨'); }
   else if (last5Up <= 1 && avg5 < -0.8) { score -= 1.5; reasons.push('短期偏弱'); }
 
-  // 最终判断
   let suggestion = '';
   if (score >= 8) suggestion = '强烈建议加仓 80-120元';
   else if (score >= 6.5) suggestion = '建议加仓 50-80元';
@@ -187,15 +182,16 @@ async function processFund(fund) {
   if (history.length > 90) history.shift();
   saveHistory(fund.code, history);
 
-  // 智能建议
   const smart = getSmartSuggestion(history);
   console.log(`📊 RSI: ${smart.rsi} | MACD: ${smart.macd} | 评分: ${smart.score}/10`);
   console.log(`💡 建议: ${smart.suggestion}`);
   console.log(`理由: ${smart.reason}`);
 
+  // 每天都推送智能建议到微信
+  await sendWechatPush(data, smart.suggestion);
+
   const change = parseFloat(data.gszzl);
   if (Math.abs(change) >= THRESHOLD) {
-    await sendWechatPush(data, smart.suggestion);
     await sendEmailAlert(data, smart.suggestion);
   }
 }
