@@ -49,15 +49,23 @@ function calculateEMA(prices, period) {
   return ema;
 }
 
-// ==================== 智能投资建议 ====================
+// ==================== 精准交易信号 ====================
 
 function getSmartSuggestion(history) {
   if (history.length < 20) {
-    return { score: 5, suggestion: '数据不足，建议继续定投', reason: '至少需要20天数据才能准确判断' };
+    return {
+      score: 5,
+      action: '观望',
+      amount: 30,
+      target: null,
+      stopLoss: null,
+      reason: '数据不足，建议继续定投'
+    };
   }
 
   const prices = history.map(h => parseFloat(h.netValue));
   const changes = history.map(h => parseFloat(h.change));
+  const latestPrice = prices[prices.length - 1];
 
   const rsi = calculateRSI(prices);
   const macd = calculateMACD(prices);
@@ -71,22 +79,44 @@ function getSmartSuggestion(history) {
   else if (rsi > 70) { score -= 1.5; reasons.push('RSI超买'); }
   else { score += 0.5; }
 
-  if (macd > 0) { score += 1.5; reasons.push('MACD金叉趋势向上'); }
-  else { score -= 1; reasons.push('MACD死叉趋势向下'); }
+  if (macd > 0) { score += 1.5; reasons.push('MACD金叉'); }
+  else { score -= 1; reasons.push('MACD死叉'); }
 
-  if (last5Up >= 4 && avg5 > 0.8) { score += 2; reasons.push('短期强势上涨'); }
+  if (last5Up >= 4 && avg5 > 0.8) { score += 2; reasons.push('短期强势'); }
   else if (last5Up <= 1 && avg5 < -0.8) { score -= 1.5; reasons.push('短期偏弱'); }
 
-  let suggestion = '';
-  if (score >= 8) suggestion = '强烈建议加仓 80-120元';
-  else if (score >= 6.5) suggestion = '建议加仓 50-80元';
-  else if (score >= 5) suggestion = '建议继续定投 30-50元';
-  else if (score >= 3.5) suggestion = '建议观望，等待更好时机';
-  else suggestion = '建议暂时减仓观望';
+  // 计算建议金额和目标
+  let action = '观望';
+  let amount = 30;
+  let target = null;
+  let stopLoss = null;
+
+  if (score >= 8) {
+    action = '买入';
+    amount = 80;
+    target = (latestPrice * 1.045).toFixed(2);
+    stopLoss = (latestPrice * 0.977).toFixed(2);
+  } else if (score >= 6.5) {
+    action = '加仓';
+    amount = 50;
+    target = (latestPrice * 1.035).toFixed(2);
+    stopLoss = (latestPrice * 0.98).toFixed(2);
+  } else if (score >= 5) {
+    action = '定投';
+    amount = 30;
+  } else if (score >= 3.5) {
+    action = '观望';
+  } else {
+    action = '减仓';
+    amount = 30;
+  }
 
   return {
     score: parseFloat(score.toFixed(1)),
-    suggestion,
+    action,
+    amount,
+    target,
+    stopLoss,
     reason: reasons.join(' + '),
     rsi: rsi ? rsi.toFixed(1) : '-',
     macd: macd ? macd.toFixed(4) : '-'
@@ -132,11 +162,15 @@ async function fetchWithRetry(url, options = {}, retries = 3) {
   }
 }
 
-async function sendWechatPush(fundData, suggestion = '') {
+async function sendWechatPush(fundData, smart) {
   if (!SERVERCHAN_KEY) return;
   const change = parseFloat(fundData.gszzl);
-  const title = `【基金警报】${fundData.name} ${change > 0 ? '上涨' : '下跌'} ${Math.abs(change)}%`;
-  const desp = `基金: ${fundData.name}\n净值: ${fundData.dwjz}\n涨跌: ${fundData.gszzl}%\n\n【智能建议】${suggestion}`;
+  let title = `【今日信号】${fundData.name} ${change > 0 ? '上涨' : '下跌'} ${Math.abs(change)}%`;
+  let desp = `基金: ${fundData.name}\n净值: ${fundData.dwjz}\n涨跌: ${fundData.gszzl}%\n\n【智能建议】\n操作: ${smart.action} ${smart.amount}元\n`;
+
+  if (smart.target) desp += `目标价: ${smart.target}\n`;
+  if (smart.stopLoss) desp += `止损价: ${smart.stopLoss}\n`;
+  desp += `评分: ${smart.score}/10\n理由: ${smart.reason}`;
 
   try {
     await fetch(`https://sctapi.ftqq.com/${SERVERCHAN_KEY}.send`, {
@@ -148,16 +182,22 @@ async function sendWechatPush(fundData, suggestion = '') {
   } catch (e) { console.error('微信推送失败'); }
 }
 
-async function sendEmailAlert(fundData, suggestion = '') {
+async function sendEmailAlert(fundData, smart) {
   if (!GMAIL_USER || !GMAIL_APP_PASSWORD) return;
   const transporter = nodemailer.createTransport({ service: 'gmail', auth: { user: GMAIL_USER, pass: GMAIL_APP_PASSWORD } });
   const change = parseFloat(fundData.gszzl);
+  let html = `<h3>${fundData.name}</h3><p>净值: ${fundData.dwjz} | 涨跌: <b style=\"color:${change > 0 ? 'green' : 'red'}\">${fundData.gszzl}%</b></p>`;
+  html += `<p><b>操作:</b> ${smart.action} ${smart.amount}元</p>`;
+  if (smart.target) html += `<p><b>目标价:</b> ${smart.target}</p>`;
+  if (smart.stopLoss) html += `<p><b>止损价:</b> ${smart.stopLoss}</p>`;
+  html += `<p><b>评分:</b> ${smart.score}/10 | <b>理由:</b> ${smart.reason}</p>`;
+
   try {
     await transporter.sendMail({
       from: GMAIL_USER,
       to: TO_EMAIL,
-      subject: `【基金警报】${fundData.name} ${change > 0 ? '上涨' : '下跌'} ${Math.abs(change)}%`,
-      html: `<h3>${fundData.name}</h3><p>净值: ${fundData.dwjz} | 涨跌: <b style=\"color:${change > 0 ? 'green' : 'red'}\">${fundData.gszzl}%</b></p><p><b>智能建议:</b> ${suggestion}</p>`
+      subject: `【今日信号】${fundData.name} ${change > 0 ? '上涨' : '下跌'} ${Math.abs(change)}%`,
+      html: html
     });
     console.log('✅ 邮件已发送:', fundData.name);
   } catch (e) { console.error('邮件发送失败'); }
@@ -184,20 +224,18 @@ async function processFund(fund) {
 
   const smart = getSmartSuggestion(history);
   console.log(`📊 RSI: ${smart.rsi} | MACD: ${smart.macd} | 评分: ${smart.score}/10`);
-  console.log(`💡 建议: ${smart.suggestion}`);
-  console.log(`理由: ${smart.reason}`);
+  console.log(`💡 操作: ${smart.action} ${smart.amount}元 | 目标: ${smart.target || '-'} | 止损: ${smart.stopLoss || '-'}`);
 
-  // 每天都推送智能建议到微信
-  await sendWechatPush(data, smart.suggestion);
+  await sendWechatPush(data, smart);
 
   const change = parseFloat(data.gszzl);
   if (Math.abs(change) >= THRESHOLD) {
-    await sendEmailAlert(data, smart.suggestion);
+    await sendEmailAlert(data, smart);
   }
 }
 
 async function main() {
-  console.log('[' + new Date().toLocaleString('zh-CN') + '] 开始智能监控...');
+  console.log('[' + new Date().toLocaleString('zh-CN') + '] 开始精准交易信号...');
   for (const fund of FUNDS) {
     await processFund(fund);
   }
