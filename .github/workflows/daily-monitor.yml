@@ -1,14 +1,9 @@
-name: Daily Fund Monitor
+name: 每日基金监测
 
 on:
   schedule:
-    - cron: '0 1 * * *'
+    - cron: '0 1 * * *'   # 北京时间 9:00
   workflow_dispatch:
-    inputs:
-      force_refresh:
-        description: 'Force refresh secrets'
-        required: false
-        default: 'true'
 
 jobs:
   monitor:
@@ -24,10 +19,6 @@ jobs:
     - name: Install dependencies
       run: npm install
 
-    - name: Debug secrets
-      run: |
-        echo "SERVERCHAN_KEY length: ${{ secrets.SERVERCHAN_KEY != '' && 'SET' || 'NOT SET' }}"
-
     - name: Run monitor
       env:
         GMAIL_USER: ${{ secrets.GMAIL_USER }}
@@ -35,3 +26,11 @@ jobs:
         TO_EMAIL: ${{ secrets.TO_EMAIL }}
         SERVERCHAN_KEY: ${{ secrets.SERVERCHAN_KEY }}
       run: node index.js
+
+    - name: Commit history files
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add history-*.json
+        git commit -m "Auto update fund history" || echo "No changes to commit"
+        git push
