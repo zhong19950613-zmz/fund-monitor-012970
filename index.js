@@ -115,50 +115,36 @@ function getSmartSuggestion(history) {
   };
 }
 
-// ==================== 策略回测 ====================
+// ==================== 每周总结报告 ====================
 
-function runBacktest(history, fundName) {
-  if (history.length < 30) {
-    return { message: '数据不足，无法回测' };
-  }
+function generateWeeklyReport() {
+  let report = '【本周基金总结】\n\n';
+  let totalReturn = 0;
+  let bestFund = '';
+  let bestReturn = -999;
 
-  let signalReturns = 0;
-  let holdReturns = 0;
-  let position = 0;
-  let buyPrice = 0;
+  for (const fund of FUNDS) {
+    const history = loadHistory(fund.code);
+    if (history.length < 2) continue;
 
-  const prices = history.map(h => parseFloat(h.netValue));
+    const firstPrice = parseFloat(history[0].netValue);
+    const lastPrice = parseFloat(history[history.length - 1].netValue);
+    const returnPct = ((lastPrice - firstPrice) / firstPrice * 100).toFixed(1);
 
-  for (let i = 20; i < history.length; i++) {
-    const tempHistory = history.slice(0, i + 1);
-    const smart = getSmartSuggestion(tempHistory);
-    const currentPrice = prices[i];
+    report += `${fund.name}: ${returnPct}%\n`;
 
-    if (smart.action === '买入' || smart.action === '加仓') {
-      if (position === 0) {
-        buyPrice = currentPrice;
-        position = 1;
-      }
-    } else if (smart.action === '减仓' && position === 1) {
-      signalReturns += (currentPrice - buyPrice) / buyPrice;
-      position = 0;
+    if (parseFloat(returnPct) > bestReturn) {
+      bestReturn = parseFloat(returnPct);
+      bestFund = fund.name;
     }
-
-    // 买入持有收益
-    if (i === 20) buyPrice = currentPrice;
-    holdReturns = (currentPrice - buyPrice) / buyPrice;
+    totalReturn += parseFloat(returnPct);
   }
 
-  const signalReturnPct = (signalReturns * 100).toFixed(1);
-  const holdReturnPct = (holdReturns * 100).toFixed(1);
-  const diff = (parseFloat(signalReturnPct) - parseFloat(holdReturnPct)).toFixed(1);
+  report += `\n本周总收益: ${totalReturn.toFixed(1)}%\n`;
+  report += `表现最佳: ${bestFund} (${bestReturn}%)\n`;
+  report += `\n下周建议: 继续观察信号，严格执行！`;
 
-  return {
-    signalReturn: signalReturnPct,
-    holdReturn: holdReturnPct,
-    difference: diff,
-    conclusion: parseFloat(diff) > 0 ? '系统策略优于手动持有' : '手动持有更优'
-  };
+  return report;
 }
 
 // ==================== 主流程 ====================
@@ -264,13 +250,6 @@ async function processFund(fund) {
   console.log(`📊 RSI: ${smart.rsi} | MACD: ${smart.macd} | 评分: ${smart.score}/10`);
   console.log(`💡 操作: ${smart.action} ${smart.amount}元 | 目标: ${smart.target || '-'} | 止损: ${smart.stopLoss || '-'}`);
 
-  // 回测
-  const backtest = runBacktest(history, fund.name);
-  if (backtest.signalReturn) {
-    console.log(`📈 回测结果: 信号策略 ${backtest.signalReturn}% | 手动持有 ${backtest.holdReturn}% | 差异 ${backtest.difference}%`);
-    console.log(`结论: ${backtest.conclusion}`);
-  }
-
   await sendWechatPush(data, smart);
 
   const change = parseFloat(data.gszzl);
@@ -280,7 +259,23 @@ async function processFund(fund) {
 }
 
 async function main() {
-  console.log('[' + new Date().toLocaleString('zh-CN') + '] 开始精准交易信号 + 回测...');
+  console.log('[' + new Date().toLocaleString('zh-CN') + '] 开始精准交易信号...');
+
+  const today = new Date().getDay();
+
+  // 每周日发送总结报告
+  if (today === 0) {
+    const weeklyReport = generateWeeklyReport();
+    if (SERVERCHAN_KEY) {
+      await fetch(`https://sctapi.ftqq.com/${SERVERCHAN_KEY}.send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `title=【每周基金总结】&desp=${encodeURIComponent(weeklyReport)}`
+      });
+      console.log('✅ 每周总结报告已发送');
+    }
+  }
+
   for (const fund of FUNDS) {
     await processFund(fund);
   }
