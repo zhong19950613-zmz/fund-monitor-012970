@@ -9,6 +9,7 @@ const SERVERCHAN_KEY = process.env.SERVERCHAN_KEY;
 
 const FUNDS = [
   { code: '012970', name: '鹏华国证半导体芯片ETF联接C' },
+  { code: '159915', name: '易方达创业板ETF联接C' },
   { code: '510300', name: '沪深300ETF' }
 ];
 
@@ -88,7 +89,7 @@ async function sendEmailAlert(fundData) {
       from: GMAIL_USER,
       to: TO_EMAIL,
       subject: `【基金警报】${fundData.name} ${change > 0 ? '上涨' : '下跌'} ${Math.abs(change)}%`,
-      html: `<h3>${fundData.name}</h3><p>净值: ${fundData.dwjz} | 涨跌: <b style="color:${change > 0 ? 'green' : 'red'}">${fundData.gszzl}%</b></p>`
+      html: `<h3>${fundData.name}</h3><p>净值: ${fundData.dwjz} | 涨跌: <b style=\"color:${change > 0 ? 'green' : 'red'}\">${fundData.gszzl}%</b></p>`
     });
     console.log('✅ 邮件已发送:', fundData.name);
   } catch (e) { console.error('邮件发送失败'); }
