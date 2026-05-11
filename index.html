@@ -36,105 +36,39 @@
 
   <script>
     async function loadData() {
-      try {
-        // 加载三只基金的历史数据
-        const [res1, res2, res3] = await Promise.all([
-          fetch('history-012970.json'),
-          fetch('history-159915.json'),
-          fetch('history-510300.json')
-        ]);
+  try {
+    const [res1, res2, res3] = await Promise.all([
+      fetch('history-012970.json').catch(() => ({ json: () => [] })),
+      fetch('history-159915.json').catch(() => ({ json: () => [] })),
+      fetch('history-510300.json').catch(() => ({ json: () => [] }))
+    ]);
 
-        const history1 = await res1.json();
-        const history2 = await res2.json();
-        const history3 = await res3.json();
+    const history1 = await res1.json();
+    const history2 = await res2.json();
+    const history3 = await res3.json();
 
-        if (history1.length === 0 && history2.length === 0 && history3.length === 0) {
-          document.getElementById('stats').innerHTML = '<p style="text-align:center">暂无历史数据，请等待几天后刷新</p>';
-          return;
-        }
+    // 显示当前已有数据
+    const latest1 = history1.length > 0 ? history1[history1.length-1].netValue : '暂无';
+    const latest2 = history2.length > 0 ? history2[history2.length-1].netValue : '暂无';
+    const latest3 = history3.length > 0 ? history3[history3.length-1].netValue : '暂无';
 
-        // 取最长的时间轴
-        const allDates = [...new Set([
-          ...history1.map(h => h.date),
-          ...history2.map(h => h.date),
-          ...history3.map(h => h.date)
-        ])].sort();
+    document.getElementById('stats').innerHTML = `
+      <div class="stat-card"><div class="stat-value">${latest1}</div><div class="stat-label">012970 最新净值</div></div>
+      <div class="stat-card"><div class="stat-value">${latest2}</div><div class="stat-label">159915 最新净值</div></div>
+      <div class="stat-card"><div class="stat-value">${latest3}</div><div class="stat-label">510300 最新净值</div></div>
+    `;
 
-        // 填充统计卡片
-        const latest1 = history1.length > 0 ? history1[history1.length-1].netValue : '-';
-        const latest2 = history2.length > 0 ? history2[history2.length-1].netValue : '-';
-        const latest3 = history3.length > 0 ? history3[history3.length-1].netValue : '-';
-
-        document.getElementById('stats').innerHTML = `
-          <div class="stat-card"><div class="stat-value">${latest1}</div><div class="stat-label">012970 最新净值</div></div>
-          <div class="stat-card"><div class="stat-value">${latest2}</div><div class="stat-label">159915 最新净值</div></div>
-          <div class="stat-card"><div class="stat-value">${latest3}</div><div class="stat-label">510300 最新净值</div></div>
-        `;
-
-        // 绘制图表
-        const ctx = document.getElementById('chart').getContext('2d');
-        new Chart(ctx, {
-          type: 'line',
-          data: {
-            labels: allDates,
-            datasets: [
-              {
-                label: '012970 半导体',
-                data: allDates.map(date => {
-                  const item = history1.find(h => h.date === date);
-                  return item ? parseFloat(item.netValue) : null;
-                }),
-                borderColor: '#1a73e8',
-                backgroundColor: 'rgba(26, 115, 232, 0.1)',
-                borderWidth: 2.5,
-                tension: 0.3,
-                spanGaps: true
-              },
-              {
-                label: '159915 创业板',
-                data: allDates.map(date => {
-                  const item = history2.find(h => h.date === date);
-                  return item ? parseFloat(item.netValue) : null;
-                }),
-                borderColor: '#34a853',
-                backgroundColor: 'rgba(52, 168, 83, 0.1)',
-                borderWidth: 2.5,
-                tension: 0.3,
-                spanGaps: true
-              },
-              {
-                label: '510300 沪深300',
-                data: allDates.map(date => {
-                  const item = history3.find(h => h.date === date);
-                  return item ? parseFloat(item.netValue) : null;
-                }),
-                borderColor: '#fbbc05',
-                backgroundColor: 'rgba(251, 188, 5, 0.1)',
-                borderWidth: 2.5,
-                tension: 0.3,
-                spanGaps: true
-              }
-            ]
-          },
-          options: {
-            responsive: true,
-            plugins: { legend: { display: true, position: 'top' } },
-            scales: {
-              y: { beginAtZero: false, grid: { color: '#e8eaed' } },
-              x: { grid: { color: '#e8eaed' } }
-            }
-          }
-        });
-
-        // 更新最后时间
-        const lastDates = [history1, history2, history3].map(h => h.length > 0 ? h[h.length-1].updateTime : '').filter(Boolean);
-        document.getElementById('lastUpdate').textContent = lastDates.sort().pop() || '暂无数据';
-
-      } catch (e) {
-        console.error(e);
-        document.getElementById('stats').innerHTML = '<p style="color:red;text-align:center">加载失败，请稍后刷新</p>';
-      }
+    // 如果有数据就显示提示
+    if (history1.length > 0 || history2.length > 0 || history3.length > 0) {
+      document.getElementById('stats').innerHTML += `<p style="text-align:center;color:#666;margin-top:10px;">数据较少，持续运行后图表会更完整</p>`;
+    } else {
+      document.getElementById('stats').innerHTML = '<p style="text-align:center">暂无历史数据，请等待几天后刷新</p>';
     }
+
+  } catch (e) {
+    document.getElementById('stats').innerHTML = '<p style="color:red;text-align:center">加载失败，请稍后刷新</p>';
+  }
+}
 
     loadData();
   </script>
