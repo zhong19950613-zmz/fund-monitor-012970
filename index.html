@@ -3,24 +3,24 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>012970 基金走势可视化</title>
+  <title>我的基金组合走势</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 900px; margin: 40px auto; padding: 20px; background: #f8f9fa; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 1000px; margin: 40px auto; padding: 20px; background: #f8f9fa; }
     .container { background: white; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); padding: 30px; }
     h1 { color: #1a73e8; text-align: center; margin-bottom: 10px; }
-    .stats { display: flex; justify-content: space-around; margin: 25px 0; flex-wrap: wrap; gap: 15px; }
-    .stat-card { background: #f1f3f4; padding: 15px 25px; border-radius: 8px; text-align: center; min-width: 140px; }
-    .stat-value { font-size: 22px; font-weight: 600; color: #202124; }
-    .stat-label { font-size: 13px; color: #5f6368; margin-top: 4px; }
-    canvas { max-height: 420px; }
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin: 25px 0; }
+    .stat-card { background: #f1f3f4; padding: 15px 20px; border-radius: 8px; text-align: center; }
+    .stat-value { font-size: 20px; font-weight: 600; color: #202124; }
+    .stat-label { font-size: 12px; color: #5f6368; margin-top: 4px; }
+    canvas { max-height: 450px; }
     .footer { text-align: center; margin-top: 30px; color: #9aa0a6; font-size: 13px; }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>📈 012970 基金走势</h1>
-    <p style="text-align:center; color:#5f6368; margin-bottom:25px;">鹏华国证半导体芯片ETF联接C · 历史净值曲线</p>
+    <h1>📈 我的基金组合走势</h1>
+    <p style="text-align:center; color:#5f6368; margin-bottom:25px;">012970 · 159915 · 510300 · 历史净值曲线</p>
 
     <div class="stats" id="stats">
       <!-- JS 动态填充 -->
@@ -37,60 +37,99 @@
   <script>
     async function loadData() {
       try {
-        const res = await fetch('history.json');
-        const history = await res.json();
+        // 加载三只基金的历史数据
+        const [res1, res2, res3] = await Promise.all([
+          fetch('history-012970.json'),
+          fetch('history-159915.json'),
+          fetch('history-510300.json')
+        ]);
 
-        if (history.length === 0) {
+        const history1 = await res1.json();
+        const history2 = await res2.json();
+        const history3 = await res3.json();
+
+        if (history1.length === 0 && history2.length === 0 && history3.length === 0) {
           document.getElementById('stats').innerHTML = '<p style="text-align:center">暂无历史数据，请等待几天后刷新</p>';
           return;
         }
 
-        // 准备图表数据
-        const labels = history.map(h => h.date);
-        const netValues = history.map(h => parseFloat(h.netValue));
-        const changes = history.map(h => parseFloat(h.change));
-
-        // 计算统计数据
-        const latest = netValues[netValues.length - 1];
-        const first = netValues[0];
-        const totalReturn = ((latest - first) / first * 100).toFixed(2);
-        const avgChange = (changes.reduce((a, b) => a + b, 0) / changes.length).toFixed(2);
+        // 取最长的时间轴
+        const allDates = [...new Set([
+          ...history1.map(h => h.date),
+          ...history2.map(h => h.date),
+          ...history3.map(h => h.date)
+        ])].sort();
 
         // 填充统计卡片
-        document.getElementById('stats').innerHTML = `
-          <div class="stat-card"><div class="stat-value">${latest}</div><div class="stat-label">最新净值</div></div>
-          <div class="stat-card"><div class="stat-value" style="color:${totalReturn >= 0 ? '#34a853' : '#ea4335'}">${totalReturn}%</div><div class="stat-label">累计收益</div></div>
-          <div class="stat-card"><div class="stat-value">${avgChange}%</div><div class="stat-label">平均日涨跌</div></div>
-          <div class="stat-card"><div class="stat-value">${history.length}天</div><div class="stat-label">数据天数</div></div>
-        `;
+        const latest1 = history1.length > 0 ? history1[history1.length-1].netValue : '-';
+        const latest2 = history2.length > 0 ? history2[history2.length-1].netValue : '-';
+        const latest3 = history3.length > 0 ? history3[history3.length-1].netValue : '-';
 
-        document.getElementById('lastUpdate').textContent = history[history.length-1].updateTime;
+        document.getElementById('stats').innerHTML = `
+          <div class="stat-card"><div class="stat-value">${latest1}</div><div class="stat-label">012970 最新净值</div></div>
+          <div class="stat-card"><div class="stat-value">${latest2}</div><div class="stat-label">159915 最新净值</div></div>
+          <div class="stat-card"><div class="stat-value">${latest3}</div><div class="stat-label">510300 最新净值</div></div>
+        `;
 
         // 绘制图表
         const ctx = document.getElementById('chart').getContext('2d');
         new Chart(ctx, {
           type: 'line',
           data: {
-            labels: labels,
-            datasets: [{
-              label: '单位净值',
-              data: netValues,
-              borderColor: '#1a73e8',
-              backgroundColor: 'rgba(26, 115, 232, 0.1)',
-              borderWidth: 3,
-              tension: 0.3,
-              fill: true
-            }]
+            labels: allDates,
+            datasets: [
+              {
+                label: '012970 半导体',
+                data: allDates.map(date => {
+                  const item = history1.find(h => h.date === date);
+                  return item ? parseFloat(item.netValue) : null;
+                }),
+                borderColor: '#1a73e8',
+                backgroundColor: 'rgba(26, 115, 232, 0.1)',
+                borderWidth: 2.5,
+                tension: 0.3,
+                spanGaps: true
+              },
+              {
+                label: '159915 创业板',
+                data: allDates.map(date => {
+                  const item = history2.find(h => h.date === date);
+                  return item ? parseFloat(item.netValue) : null;
+                }),
+                borderColor: '#34a853',
+                backgroundColor: 'rgba(52, 168, 83, 0.1)',
+                borderWidth: 2.5,
+                tension: 0.3,
+                spanGaps: true
+              },
+              {
+                label: '510300 沪深300',
+                data: allDates.map(date => {
+                  const item = history3.find(h => h.date === date);
+                  return item ? parseFloat(item.netValue) : null;
+                }),
+                borderColor: '#fbbc05',
+                backgroundColor: 'rgba(251, 188, 5, 0.1)',
+                borderWidth: 2.5,
+                tension: 0.3,
+                spanGaps: true
+              }
+            ]
           },
           options: {
             responsive: true,
-            plugins: { legend: { display: false } },
+            plugins: { legend: { display: true, position: 'top' } },
             scales: {
               y: { beginAtZero: false, grid: { color: '#e8eaed' } },
               x: { grid: { color: '#e8eaed' } }
             }
           }
         });
+
+        // 更新最后时间
+        const lastDates = [history1, history2, history3].map(h => h.length > 0 ? h[h.length-1].updateTime : '').filter(Boolean);
+        document.getElementById('lastUpdate').textContent = lastDates.sort().pop() || '暂无数据';
+
       } catch (e) {
         console.error(e);
         document.getElementById('stats').innerHTML = '<p style="color:red;text-align:center">加载失败，请稍后刷新</p>';
