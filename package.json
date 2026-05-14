@@ -1,13 +1,19 @@
 {
-  "name": "fund-monitor-012970",
-  "version": "1.1.0",
-  "description": "Daily monitor for 012970 semiconductor ETF with email alerts",
+  "name": "fund-monitor",
+  "version": "1.0.0",
+  "description": "张先生基金监控器",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
+  "keywords": ["fund", "monitor", "investment"],
+  "author": "张先生",
+  "license": "MIT",
   "dependencies": {
-    "node-fetch": "^2.7.0",
     "nodemailer": "^6.9.13"
+  },
+  "engines": {
+    "node": ">=18"
   }
 }
