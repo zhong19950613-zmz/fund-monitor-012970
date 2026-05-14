@@ -1,0 +1,69 @@
+{
+  "update_time": "2026-05-14",
+  "description": "张先生当前实际持有的全部基金（两平台）",
+  "funds": [
+    {
+      "name": "鹏华国证半导体芯片ETF联接C",
+      "code": "012970",
+      "platform": "支付宝",
+      "priority": 1,
+      "note": "当前最大仓位"
+    },
+    {
+      "name": "易方达创业板ETF联接C",
+      "code": "159915",
+      "platform": "支付宝",
+      "priority": 2,
+      "note": "第二大仓位"
+    },
+    {
+      "name": "华泰柏瑞沪深300ETF联接C",
+      "code": "510300",
+      "platform": "微信",
+      "priority": 3,
+      "note": "核心底仓（新定投）"
+    },
+    {
+      "name": "银河中证机器人指数C",
+      "code": "",
+      "platform": "支付宝",
+      "priority": 4,
+      "note": "新持仓"
+    },
+    {
+      "name": "华泰柏瑞中证光伏产业ETF联接C",
+      "code": "012680",
+      "platform": "微信",
+      "priority": 5,
+      "note": "进攻型"
+    },
+    {
+      "name": "华宝食品ETF联接C",
+      "code": "012549",
+      "platform": "微信",
+      "priority": 6,
+      "note": "防御型"
+    },
+    {
+      "name": "易方达全球成长精选混合(QDII)A",
+      "code": "012920",
+      "platform": "微信",
+      "priority": 7,
+      "note": "分散型"
+    },
+    {
+      "name": "永赢科技智选混合发起A",
+      "code": "022364",
+      "platform": "微信",
+      "priority": 8,
+      "note": "进攻型"
+    },
+    {
+      "name": "信澳业绩驱动混合A",
+      "code": "016370",
+      "platform": "微信",
+      "priority": 9,
+      "note": "进攻型"
+    }
+  ]
+}
