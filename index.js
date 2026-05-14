@@ -103,11 +103,14 @@ async function monitorFunds() {
   console.log('========== 今日监控总结 ==========');
   console.log(summaryText);
 
-  // 高风险时推送微信
-  if (highRiskFunds.length > 0 && SERVERCHAN_KEY) {
-    const title = `基金监控预警 - ${highRiskFunds.length}只高风险`;
+  // 每天发送微信总结（无论是否有高风险）
+  if (SERVERCHAN_KEY) {
+    const title = highRiskFunds.length > 0 
+      ? `基金监控日报 - ${highRiskFunds.length}只高风险` 
+      : `基金监控日报 - ${new Date().toLocaleDateString('zh-CN')}`;
+    
     await sendWechat(title, summaryText);
-    console.log('已发送高风险微信通知');
+    console.log('已发送微信每日总结');
   }
 
   // 每天发送邮件总结
