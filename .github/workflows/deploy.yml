@@ -1,4 +1,4 @@
-name: Deploy to GitHub Pages
+name: 部署到 GitHub Pages
 
 on:
   push:
@@ -24,13 +24,10 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v4
 
-      # 如果你想部署整个根目录，就用下面这行
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: '.'
-
-      # 如果你想只部署 docs 文件夹（推荐），请把上面 path 改成 'docs'
 
   deploy:
     environment:
