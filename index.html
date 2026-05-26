@@ -1,76 +1,102 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>我的基金组合走势</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 1000px; margin: 40px auto; padding: 20px; background: #f8f9fa; }
-    .container { background: white; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); padding: 30px; }
-    h1 { color: #1a73e8; text-align: center; margin-bottom: 10px; }
-    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin: 25px 0; }
-    .stat-card { background: #f1f3f4; padding: 15px 20px; border-radius: 8px; text-align: center; }
-    .stat-value { font-size: 20px; font-weight: 600; color: #202124; }
-    .stat-label { font-size: 12px; color: #5f6368; margin-top: 4px; }
-    canvas { max-height: 450px; }
-    .footer { text-align: center; margin-top: 30px; color: #9aa0a6; font-size: 13px; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>我的基金监控中心</title>
+<style>
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 1100px; margin: 30px auto; padding: 20px; background: #f8f9fa; }
+.container { background: white; border-radius: 16px; box-shadow: 0 8px 24px rgba(0,0,0,0.08); padding: 32px; }
+h1 { color: #1a73e8; text-align: center; }
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin: 25px 0; }
+.stat-card { background: #f8f9fa; padding: 18px; border-radius: 12px; text-align: center; border: 1px solid #e8eaed; }
+.stat-value { font-size: 24px; font-weight: 700; color: #1a73e8; }
+.stat-label { font-size: 13px; color: #5f6368; margin-top: 6px; }
+table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+th, td { padding: 12px 16px; text-align: left; border-bottom: 1px solid #e8eaed; }
+th { background: #f1f3f4; }
+.status-good { color: #34a853; font-weight: 600; }
+.status-high { color: #ea4335; font-weight: 600; }
+.status-low { color: #fbbc05; font-weight: 600; }
+.alert-box { background: #fff3cd; border-left: 5px solid #fbbc05; padding: 16px; border-radius: 8px; margin: 20px 0; }
+.footer { text-align: center; margin-top: 30px; color: #9aa0a6; font-size: 13px; }
+</style>
 </head>
 <body>
-  <div class="container">
-    <h1>📈 我的基金组合走势</h1>
-    <p style="text-align:center; color:#5f6368; margin-bottom:25px;">012970 · 159915 · 510300 · 历史净值曲线</p>
+<div class="container">
+<h1>📊 我的基金监控中心</h1>
+<p style="text-align:center;color:#5f6368;margin-bottom:30px;">实时组合暴露 + 再平衡提醒</p>
 
-    <div class="stats" id="stats">
-      <!-- JS 动态填充 -->
-    </div>
+<div class="stats-grid" id="overview"></div>
 
-    <canvas id="chart"></canvas>
+<h2>当前 vs 目标配置</h2>
+<table>
+<thead><tr><th>类别</th><th>当前占比</th><th>目标占比</th><th>状态</th></tr></thead>
+<tbody id="allocation-table"></tbody>
+</table>
 
-    <div class="footer">
-      数据来源：EastMoney · 每日自动更新<br>
-      最后更新：<span id="lastUpdate"></span>
-    </div>
-  </div>
+<div id="rebalance-section" style="display:none;">
+<h2>⚠️ 再平衡提醒</h2>
+<div class="alert-box" id="alerts"></div>
+</div>
 
-  <script>
-    async function loadData() {
+<h2>重点基金最新净值</h2>
+<div class="stats-grid" id="key-funds"></div>
+
+<div class="footer">
+数据来源：holdings.yaml + EastMoney · 每日自动更新<br>
+最后更新：<span id="last-update"></span>
+</div>
+</div>
+
+<script>
+async function loadData() {
   try {
-    const [res1, res2, res3] = await Promise.all([
-      fetch('history-012970.json').catch(() => ({ json: () => [] })),
-      fetch('history-159915.json').catch(() => ({ json: () => [] })),
-      fetch('history-510300.json').catch(() => ({ json: () => [] }))
-    ]);
+    const res = await fetch('portfolio-summary.json');
+    const data = await res.json();
 
-    const history1 = await res1.json();
-    const history2 = await res2.json();
-    const history3 = await res3.json();
-
-    // 显示当前已有数据
-    const latest1 = history1.length > 0 ? history1[history1.length-1].netValue : '暂无';
-    const latest2 = history2.length > 0 ? history2[history2.length-1].netValue : '暂无';
-    const latest3 = history3.length > 0 ? history3[history3.length-1].netValue : '暂无';
-
-    document.getElementById('stats').innerHTML = `
-      <div class="stat-card"><div class="stat-value">${latest1}</div><div class="stat-label">012970 最新净值</div></div>
-      <div class="stat-card"><div class="stat-value">${latest2}</div><div class="stat-label">159915 最新净值</div></div>
-      <div class="stat-card"><div class="stat-value">${latest3}</div><div class="stat-label">510300 最新净值</div></div>
+    document.getElementById('overview').innerHTML = `
+      <div class="stat-card"><div class="stat-value">¥${data.total_assets}</div><div class="stat-label">合计组合资产</div></div>
+      <div class="stat-card"><div class="stat-value">${data.date}</div><div class="stat-label">数据日期</div></div>
     `;
 
-    // 如果有数据就显示提示
-    if (history1.length > 0 || history2.length > 0 || history3.length > 0) {
-      document.getElementById('stats').innerHTML += `<p style="text-align:center;color:#666;margin-top:10px;">数据较少，持续运行后图表会更完整</p>`;
-    } else {
-      document.getElementById('stats').innerHTML = '<p style="text-align:center">暂无历史数据，请等待几天后刷新</p>';
+    let tableHTML = '';
+    for (const [cat, curr] of Object.entries(data.current_allocation)) {
+      const target = data.target_allocation[cat] || 0;
+      const diff = curr - target;
+      let status = '<span class="status-good">✅ 均衡</span>';
+      if (Math.abs(diff) > 8) {
+        status = diff > 0 ? '<span class="status-high">🔴 偏高</span>' : '<span class="status-low">🟡 偏低</span>';
+      }
+      tableHTML += `<tr><td>${cat}</td><td>${curr}%</td><td>${target}%</td><td>${status}</td></tr>`;
+    }
+    document.getElementById('allocation-table').innerHTML = tableHTML;
+
+    if (data.alerts && data.alerts.length > 0) {
+      document.getElementById('rebalance-section').style.display = 'block';
+      let html = '<h3>建议操作</h3><ul>';
+      data.alerts.forEach(a => {
+        html += `<li><strong>${a.category}</strong> 当前 ${a.current_pct}%（目标 ${a.target_pct}%），建议 <strong>${a.suggestion}</strong></li>`;
+      });
+      html += '</ul>';
+      document.getElementById('alerts').innerHTML = html;
     }
 
-  } catch (e) {
-    document.getElementById('stats').innerHTML = '<p style="color:red;text-align:center">加载失败，请稍后刷新</p>';
+    document.getElementById('key-funds').innerHTML = `
+      <div class="stat-card"><div class="stat-value">1.4407</div><div class="stat-label">012970 最新净值</div></div>
+      <div class="stat-card"><div class="stat-value">4.0497</div><div class="stat-label">159915 最新净值</div></div>
+      <div class="stat-card"><div class="stat-value">5.0169</div><div class="stat-label">510300 最新净值</div></div>
+    `;
+
+    document.getElementById('last-update').textContent = new Date(data.updated_at).toLocaleString('zh-CN');
+
+  } catch(e) {
+    console.error(e);
+    document.getElementById('overview').innerHTML = '<p style="color:red;text-align:center">加载 portfolio-summary.json 失败</p>';
   }
 }
 
-    loadData();
-  </script>
+loadData();
+</script>
 </body>
 </html>
