@@ -1,0 +1,32 @@
+name: Daily Fund Report
+
+on:
+  schedule:
+    - cron: '0 1 * * *'   # 每天北京时间 09:00 执行
+  workflow_dispatch:
+
+jobs:
+  generate-report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install pyyaml
+
+      - name: Generate Report
+        run: python scripts/generate_report.py
+
+      - name: Commit and Push Report
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add reports/
+          git commit -m "Daily report update $(date +%Y-%m-%d)" || echo "No changes"
+          git push
