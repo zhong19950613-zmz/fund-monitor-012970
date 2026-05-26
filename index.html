@@ -55,11 +55,13 @@ async function loadData() {
     const res = await fetch('portfolio-summary.json');
     const data = await res.json();
 
+    // 概览
     document.getElementById('overview').innerHTML = `
       <div class="stat-card"><div class="stat-value">¥${data.total_assets}</div><div class="stat-label">合计组合资产</div></div>
       <div class="stat-card"><div class="stat-value">${data.date}</div><div class="stat-label">数据日期</div></div>
     `;
 
+    // 配置表
     let tableHTML = '';
     for (const [cat, curr] of Object.entries(data.current_allocation)) {
       const target = data.target_allocation[cat] || 0;
@@ -72,6 +74,7 @@ async function loadData() {
     }
     document.getElementById('allocation-table').innerHTML = tableHTML;
 
+    // 再平衡提醒
     if (data.alerts && data.alerts.length > 0) {
       document.getElementById('rebalance-section').style.display = 'block';
       let html = '<h3>建议操作</h3><ul>';
@@ -82,6 +85,7 @@ async function loadData() {
       document.getElementById('alerts').innerHTML = html;
     }
 
+    // 重点基金净值
     document.getElementById('key-funds').innerHTML = `
       <div class="stat-card"><div class="stat-value">1.4407</div><div class="stat-label">012970 最新净值</div></div>
       <div class="stat-card"><div class="stat-value">4.0497</div><div class="stat-label">159915 最新净值</div></div>
@@ -92,7 +96,7 @@ async function loadData() {
 
   } catch(e) {
     console.error(e);
-    document.getElementById('overview').innerHTML = '<p style="color:red;text-align:center">加载 portfolio-summary.json 失败</p>';
+    document.getElementById('overview').innerHTML = '<p style="color:red;text-align:center">加载 portfolio-summary.json 失败，请检查文件是否存在</p>';
   }
 }
 
