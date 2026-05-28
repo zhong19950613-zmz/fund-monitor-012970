@@ -1,0 +1,46 @@
+# fund-monitor 持仓配置文件
+# 请根据实际情况修改
+
+version: "1.0"
+last_updated: "2026-05-27"
+
+# 投资目标配置
+portfolio:
+  name: "核心组合"
+  target_allocation:
+    equity: 0.60          # 股票/基金
+    bond: 0.20            # 债券
+    cash: 0.10            # 现金
+    alternative: 0.10     # 替代资产
+
+# 具体持仓列表
+holdings:
+  - symbol: "510300"
+    name: "沪深300ETF"
+    type: "equity"
+    weight: 0.25
+    target_weight: 0.20
+    notes: "核心宽基指数"
+
+  - symbol: "159915"
+    name: "创业板50ETF"
+    type: "equity"
+    weight: 0.15
+    target_weight: 0.15
+
+  - symbol: "511880"
+    name: "银行债"
+    type: "bond"
+    weight: 0.15
+    target_weight: 0.15
+
+# 风险控制参数
+risk_control:
+  max_single_position: 0.30
+  rebalance_threshold: 0.08   # 占比偏离超过此值触发再平衡
+
+# 关注指数列表
+watch_indices:
+  - "000300"   # 沪深300
+  - "399006"   # 创业板指
+  - "IXIC"      # 纳斯达克
