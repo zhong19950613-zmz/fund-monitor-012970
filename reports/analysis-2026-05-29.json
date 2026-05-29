@@ -1,0 +1,26 @@
+{
+  "date": "2026-05-29",
+  "timestamp": "2026-05-29T05:16:37.960913",
+  "needs_rebalance": true,
+  "deviations": [
+    {
+      "type": "equity",
+      "current": 0.4,
+      "target": 0.6,
+      "diff": -0.19999999999999996
+    },
+    {
+      "type": "cash",
+      "current": 0.0,
+      "target": 0.1,
+      "diff": -0.1
+    },
+    {
+      "type": "alternative",
+      "current": 0.0,
+      "target": 0.1,
+      "diff": -0.1
+    }
+  ],
+  "summary": "Rebalance needed"
+}
