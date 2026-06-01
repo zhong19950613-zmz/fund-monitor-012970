@@ -1,39 +1,56 @@
-last_updated: "2026-05-26"
-
+last_updated: "2026-06-01"
 tencent:
-  total_assets: 767.08
+  total_assets: 840.0
   holdings:
     - name: "华泰柏瑞沪深300ETF联接C"
-      amount: 116.94
+      amount: 165.09
       category: "宽基"
-    - name: "平安中证卫星产业指数C"
-      amount: 81.85
-      category: "卫星"
-    - name: "鹏华国证半导体芯片ETF联接C"
-      amount: 51.90
-      category: "半导体"
     - name: "易方达全球成长精选混合(QDII)A"
-      amount: 62.76
-      category: "成长"
-    - name: "永赢科技智选混合发起A"
-      amount: 54.39
-      category: "成长"
+      amount: 105.28
+      category: "其他成长"
+    - name: "天弘月月宝30天持有期债券C"
+      amount: 100.06
+      category: "防御"
+    - name: "短期+"
+      amount: 97.27
+      category: "防御"
+    - name: "华泰柏瑞中证光伏产业ETF联接C"
+      amount: 87.75
+      category: "其他成长"
+    - name: "平安中证卫星产业指数C"
+      amount: 73.22
+      category: "卫星"
+    - name: "南方纳斯达克100指数(QDII)C"
+      amount: 67.00
+      category: "其他成长"
+    - name: "中欧上证科创板人工智能指数C"
+      amount: 50.52
+      category: "其他成长"
+    - name: "鹏华国证半导体芯片ETF联接C"
+      amount: 48.14
+      category: "半导体"
+    - name: "国泰中证港股通互联网ETF发起联接C"
+      amount: 46.15
+      category: "其他成长"
 
 alipay:
-  total_assets: 266.84
+  total_assets: 278.0
   holdings:
     - name: "鹏华国证半导体芯片ETF联接C"
-      amount: 82.27
+      amount: 93.46
       category: "半导体"
+    - name: "永赢数字经济智选混合C"
+      amount: 37.11
+      category: "其他成长"
+    - name: "银河中证机器人指数C"
+      amount: 35.58
+      category: "其他成长"
     - name: "华泰柏瑞沪深300ETF联接C"
-      amount: 45.00
+      amount: 42.24
       category: "宽基"
     - name: "易方达创业板ETF联接C"
-      amount: 69.72
-      category: "成长"
-    - name: "银河中证机器人指数C"
-      amount: 38.19
-      category: "成长"
+      amount: 69.66
+      category: "宽基"
 
 target_allocation:
   宽基: 0.38
