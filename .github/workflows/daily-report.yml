@@ -2,14 +2,18 @@ name: Daily Fund Report
 
 on:
   schedule:
-    - cron: '0 1 * * *'   # 每天北京时间 09:00 自动运行
+    - cron: '0 1 * * *'   # 北京时间 09:00 自动运行
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   generate-report:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -17,9 +21,11 @@ jobs:
           python-version: '3.11'
 
       - name: Install dependencies
-        run: pip install pyyaml
+        run: pip install -r requirements.txt
 
-      - name: Generate daily report and summary
+      - name: Generate daily report and update summary
+        env:
+          SCKEY: ${{ secrets.SCKEY }}   # 可选：配置后自动微信推送
         run: python scripts/generate_report.py
 
       - name: Commit and push updates
@@ -27,5 +33,9 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add reports/ portfolio-summary.json || true
-          git commit -m "Daily report update - $(date +%Y-%m-%d)" || echo "No changes"
-          git push || echo "Push skipped or failed"
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "chore: daily fund report update $(date +%Y-%m-%d)"
+            git push
+          fi
