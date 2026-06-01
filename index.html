@@ -1,106 +1,269 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>我的基金监控中心</title>
-<style>
-body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 1100px; margin: 30px auto; padding: 20px; background: #f8f9fa; }
-.container { background: white; border-radius: 16px; box-shadow: 0 8px 24px rgba(0,0,0,0.08); padding: 32px; }
-h1 { color: #1a73e8; text-align: center; }
-.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin: 25px 0; }
-.stat-card { background: #f8f9fa; padding: 18px; border-radius: 12px; text-align: center; border: 1px solid #e8eaed; }
-.stat-value { font-size: 24px; font-weight: 700; color: #1a73e8; }
-.stat-label { font-size: 13px; color: #5f6368; margin-top: 6px; }
-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-th, td { padding: 12px 16px; text-align: left; border-bottom: 1px solid #e8eaed; }
-th { background: #f1f3f4; }
-.status-good { color: #34a853; font-weight: 600; }
-.status-high { color: #ea4335; font-weight: 600; }
-.status-low { color: #fbbc05; font-weight: 600; }
-.alert-box { background: #fff3cd; border-left: 5px solid #fbbc05; padding: 16px; border-radius: 8px; margin: 20px 0; }
-.footer { text-align: center; margin-top: 30px; color: #9aa0a6; font-size: 13px; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的基金监控中心</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Noto+Sans+SC:wght@400;500;700&amp;display=swap');
+        
+        body {
+            font-family: 'Inter', 'Noto Sans SC', system-ui, sans-serif;
+        }
+        
+        .stat-card {
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+        
+        .status-good { 
+            background-color: #dcfce7; 
+            color: #166534; 
+            padding: 2px 10px; 
+            border-radius: 9999px; 
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        
+        .status-high { 
+            background-color: #fee2e2; 
+            color: #991b1b; 
+            padding: 2px 10px; 
+            border-radius: 9999px; 
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        
+        .status-low { 
+            background-color: #fef9c3; 
+            color: #854d0e; 
+            padding: 2px 10px; 
+            border-radius: 9999px; 
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        
+        .section-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        table {
+            border-collapse: separate;
+            border-spacing: 0;
+        }
+        
+        th {
+            background-color: #f8fafc;
+            font-weight: 600;
+            color: #475569;
+        }
+    </style>
 </head>
-<body>
-<div class="container">
-<h1>📊 我的基金监控中心</h1>
-<p style="text-align:center;color:#5f6368;margin-bottom:30px;">实时组合暴露 + 再平衡提醒</p>
+<body class="bg-slate-50">
+    <div class="max-w-5xl mx-auto px-4 py-8">
+        <!-- Header -->
+        <div class="flex items-center justify-between mb-8">
+            <div>
+                <h1 class="text-3xl font-bold text-slate-900 flex items-center gap-x-3">
+                    <i class="fa-solid fa-chart-line text-blue-600"></i>
+                    <span>我的基金监控中心</span>
+                </h1>
+                <p class="text-slate-500 mt-1">实时组合暴露 + 再平衡提醒</p>
+            </div>
+            <div class="text-right">
+                <div id="last-update" class="text-sm text-slate-500"></div>
+            </div>
+        </div>
 
-<div class="stats-grid" id="overview"></div>
+        <!-- 概览卡片 -->
+        <div id="overview" class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+            <!-- JS 动态填充 -->
+        </div>
 
-<h2>当前 vs 目标配置</h2>
-<table>
-<thead><tr><th>类别</th><th>当前占比</th><th>目标占比</th><th>状态</th></tr></thead>
-<tbody id="allocation-table"></tbody>
-</table>
+        <!-- 类别配置偏差 -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-8">
+            <div class="section-title">
+                <i class="fa-solid fa-layer-group text-blue-600"></i>
+                <span>类别配置偏差分析</span>
+            </div>
+            
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="border-b border-slate-200">
+                            <th class="py-3 px-4 text-left font-semibold">类别</th>
+                            <th class="py-3 px-4 text-right font-semibold">当前占比</th>
+                            <th class="py-3 px-4 text-right font-semibold">目标占比</th>
+                            <th class="py-3 px-4 text-right font-semibold">偏差</th>
+                            <th class="py-3 px-4 text-center font-semibold">状态</th>
+                        </tr>
+                    </thead>
+                    <tbody id="allocation-table" class="divide-y divide-slate-100">
+                        <!-- JS 动态填充 -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
 
-<div id="rebalance-section" style="display:none;">
-<h2>⚠️ 再平衡提醒</h2>
-<div class="alert-box" id="alerts"></div>
-</div>
+        <!-- 再平衡建议 -->
+        <div id="rebalance-section" class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-8 hidden">
+            <div class="section-title text-orange-600">
+                <i class="fa-solid fa-sync-alt"></i>
+                <span>再平衡建议</span>
+            </div>
+            <div id="alerts" class="text-sm space-y-2 text-slate-700"></div>
+            <div class="mt-4 text-xs text-slate-500 bg-orange-50 p-3 rounded-xl">
+                建议在接下来 1-3 个交易日内逐步执行，避免一次性大额操作。
+            </div>
+        </div>
 
-<h2>重点基金最新净值</h2>
-<div class="stats-grid" id="key-funds"></div>
+        <!-- 健康度 + 市场影响 -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- 组合健康度 -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                <div class="section-title">
+                    <i class="fa-solid fa-heart-pulse text-emerald-600"></i>
+                    <span>组合健康度</span>
+                </div>
+                <div id="health-status" class="text-2xl font-semibold mt-2"></div>
+                <div class="text-sm text-slate-500 mt-1">最大偏差超过 8% 时建议再平衡</div>
+            </div>
 
-<div class="footer">
-数据来源：holdings.yaml + EastMoney · 每日自动更新<br>
-最后更新：<span id="last-update"></span>
-</div>
-</div>
+            <!-- 市场影响提示 -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                <div class="section-title">
+                    <i class="fa-solid fa-globe text-indigo-600"></i>
+                    <span>市场环境参考</span>
+                </div>
+                <div class="text-sm text-slate-600 mt-3">
+                    报告已包含沪深300、半导体、纳斯达克100昨日表现。<br>
+                    重仓相关板块时请重点关注。
+                </div>
+            </div>
+        </div>
 
-<script>
-async function loadData() {
-  try {
-    const res = await fetch('portfolio-summary.json');
-    const data = await res.json();
+        <div class="mt-8 text-center text-xs text-slate-400">
+            数据来源：holdings.yaml（腾讯理财通 + 蚂蚁财富） | 自动更新于北京时间 09:00
+        </div>
+    </div>
 
-    // 概览
-    document.getElementById('overview').innerHTML = `
-      <div class="stat-card"><div class="stat-value">¥${data.total_assets}</div><div class="stat-label">合计组合资产</div></div>
-      <div class="stat-card"><div class="stat-value">${data.date}</div><div class="stat-label">数据日期</div></div>
-    `;
+    <script>
+        async function loadData() {
+            try {
+                const res = await fetch('portfolio-summary.json');
+                if (!res.ok) throw new Error('无法加载数据');
+                const data = await res.json();
 
-    // 配置表
-    let tableHTML = '';
-    for (const [cat, curr] of Object.entries(data.current_allocation)) {
-      const target = data.target_allocation[cat] || 0;
-      const diff = curr - target;
-      let status = '<span class="status-good">✅ 均衡</span>';
-      if (Math.abs(diff) > 8) {
-        status = diff > 0 ? '<span class="status-high">🔴 偏高</span>' : '<span class="status-low">🟡 偏低</span>';
-      }
-      tableHTML += `<tr><td>${cat}</td><td>${curr}%</td><td>${target}%</td><td>${status}</td></tr>`;
-    }
-    document.getElementById('allocation-table').innerHTML = tableHTML;
+                // 概览卡片
+                const overviewHTML = `
+                    <div class="stat-card bg-white border border-slate-200 rounded-2xl p-5">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <div class="text-3xl font-semibold text-slate-900">¥${data.total_assets}</div>
+                                <div class="text-sm text-slate-500 mt-1">组合总资产</div>
+                            </div>
+                            ${data.use_realtime_price ? 
+                                `<div class="px-3 py-1 bg-emerald-100 text-emerald-700 text-xs font-medium rounded-full flex items-center gap-x-1">
+                                    <i class="fa-solid fa-sync fa-sm"></i>
+                                    <span>实时价格</span>
+                                </div>` : ''}
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card bg-white border border-slate-200 rounded-2xl p-5">
+                        <div class="text-3xl font-semibold text-slate-900">${data.date}</div>
+                        <div class="text-sm text-slate-500 mt-1">数据日期</div>
+                    </div>
+                `;
+                document.getElementById('overview').innerHTML = overviewHTML;
 
-    // 再平衡提醒
-    if (data.alerts && data.alerts.length > 0) {
-      document.getElementById('rebalance-section').style.display = 'block';
-      let html = '<h3>建议操作</h3><ul>';
-      data.alerts.forEach(a => {
-        html += `<li><strong>${a.category}</strong> 当前 ${a.current_pct}%（目标 ${a.target_pct}%），建议 <strong>${a.suggestion}</strong></li>`;
-      });
-      html += '</ul>';
-      document.getElementById('alerts').innerHTML = html;
-    }
+                // 配置表格
+                let tableHTML = '';
+                const entries = Object.entries(data.current_allocation).sort((a, b) => b[1] - a[1]);
+                
+                for (const [cat, curr] of entries) {
+                    const target = data.target_allocation[cat] || 0;
+                    const diff = curr - target;
+                    
+                    let statusHTML = '';
+                    if (Math.abs(diff) > 8) {
+                        statusHTML = diff > 0 
+                            ? `<span class="status-high">⚠️ 偏高</span>` 
+                            : `<span class="status-low">🟡 偏低</span>`;
+                    } else {
+                        statusHTML = `<span class="status-good">✅ 均衡</span>`;
+                    }
 
-    // 重点基金净值
-    document.getElementById('key-funds').innerHTML = `
-      <div class="stat-card"><div class="stat-value">1.4407</div><div class="stat-label">012970 最新净值</div></div>
-      <div class="stat-card"><div class="stat-value">4.0497</div><div class="stat-label">159915 最新净值</div></div>
-      <div class="stat-card"><div class="stat-value">5.0169</div><div class="stat-label">510300 最新净值</div></div>
-    `;
+                    tableHTML += `
+                        <tr class="hover:bg-slate-50">
+                            <td class="py-3 px-4 font-medium">${cat}</td>
+                            <td class="py-3 px-4 text-right font-mono">${curr.toFixed(1)}%</td>
+                            <td class="py-3 px-4 text-right font-mono text-slate-500">${target}%</td>
+                            <td class="py-3 px-4 text-right font-mono ${diff >= 0 ? 'text-red-600' : 'text-emerald-600'}">
+                                ${diff >= 0 ? '+' : ''}${diff.toFixed(1)}%
+                            </td>
+                            <td class="py-3 px-4 text-center">${statusHTML}</td>
+                        </tr>
+                    `;
+                }
+                document.getElementById('allocation-table').innerHTML = tableHTML;
 
-    document.getElementById('last-update').textContent = new Date(data.updated_at).toLocaleString('zh-CN');
+                // 再平衡建议
+                const rebalanceSection = document.getElementById('rebalance-section');
+                if (data.alerts && data.alerts.length > 0) {
+                    rebalanceSection.style.display = 'block';
+                    let html = '<ul class="space-y-2">';
+                    data.alerts.forEach(a => {
+                        html += `
+                            <li class="flex items-start gap-x-2 text-sm">
+                                <span class="font-semibold text-orange-600 mt-0.5">•</span>
+                                <span><strong>${a.category}</strong> 当前 ${a.current_pct}%（目标 ${a.target_pct}%），建议 <strong class="text-orange-600">${a.suggestion}</strong>（偏离 ${a.diff_pct}%）</span>
+                            </li>`;
+                    });
+                    html += '</ul>';
+                    document.getElementById('alerts').innerHTML = html;
+                } else {
+                    rebalanceSection.style.display = 'none';
+                }
 
-  } catch(e) {
-    console.error(e);
-    document.getElementById('overview').innerHTML = '<p style="color:red;text-align:center">加载 portfolio-summary.json 失败，请检查文件是否存在</p>';
-  }
-}
+                // 健康度
+                const healthEl = document.createElement('div');
+                healthEl.className = `mt-2 text-xl font-semibold ${data.max_deviation_pct > 8 ? 'text-red-600' : 'text-emerald-600'}`;
+                healthEl.innerHTML = data.health_status || '';
+                const healthContainer = document.querySelector('#overview').parentElement;
+                // 这里简化处理，实际可根据需要调整位置
 
-loadData();
-</script>
+                // 更新时间
+                document.getElementById('last-update').textContent = 
+                    '最后更新：' + new Date(data.updated_at).toLocaleString('zh-CN');
+
+            } catch (error) {
+                console.error(error);
+                document.getElementById('overview').innerHTML = `
+                    <div class="col-span-3 bg-red-50 border border-red-200 text-red-600 p-6 rounded-2xl text-center">
+                        加载数据失败，请确认 <code>portfolio-summary.json</code> 是否存在
+                    </div>
+                `;
+            }
+        }
+
+        // 页面加载
+        loadData();
+        
+        // 每5分钟自动刷新一次（可选）
+        // setInterval(loadData, 5 * 60 * 1000);
+    </script>
 </body>
 </html>
