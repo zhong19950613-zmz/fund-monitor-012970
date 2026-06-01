@@ -1,1 +1,48 @@
-{"date": "2026-05-26", "total_assets": 1033.92, "current_allocation": {"宽基": 15.7, "半导体": 13.0, "卫星": 7.9, "防御": 27.1, "其他成长": 36.3}, "target_allocation": {"宽基": 38, "半导体": 22, "卫星": 12, "防御": 18, "其他成长": 10}, "alerts": [{"category": "宽基", "current_pct": 15.7, "target_pct": 38, "suggestion": "加仓"}, {"category": "半导体", "current_pct": 13.0, "target_pct": 22, "suggestion": "加仓"}, {"category": "卫星", "current_pct": 7.9, "target_pct": 12, "suggestion": "加仓"}, {"category": "防御", "current_pct": 27.1, "target_pct": 18, "suggestion": "减持"}], "updated_at": "2026-05-26T09:43:00"}
+{
+  "date": "2026-06-01",
+  "total_assets": 603.02,
+  "current_allocation": {
+    "宽基": 26.9,
+    "卫星": 13.6,
+    "半导体": 22.2,
+    "成长": 37.3
+  },
+  "target_allocation": {
+    "宽基": 38,
+    "半导体": 22,
+    "卫星": 12,
+    "防御": 18,
+    "其他成长": 10
+  },
+  "alerts": [
+    {
+      "category": "宽基",
+      "current_pct": 26.9,
+      "target_pct": 38,
+      "suggestion": "加仓",
+      "diff_pct": 11.1
+    },
+    {
+      "category": "防御",
+      "current_pct": 0.0,
+      "target_pct": 18,
+      "suggestion": "加仓",
+      "diff_pct": 18.0
+    },
+    {
+      "category": "其他成长",
+      "current_pct": 0.0,
+      "target_pct": 10,
+      "suggestion": "加仓",
+      "diff_pct": 10.0
+    }
+  ],
+  "market_perf": {
+    "沪深300": 0.0,
+    "半导体": 0.0,
+    "纳斯达克100": 0.37
+  },
+  "max_deviation_pct": 18.0,
+  "health_status": "⚠️ **需要再平衡**（最大偏差超过 8%）",
+  "updated_at": "2026-06-01T01:30:47.828746"
+}
