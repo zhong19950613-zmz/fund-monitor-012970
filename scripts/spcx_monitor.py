@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 """极简 SPCX 价格监控脚本
 - 中文 key
-- 简单涨跌幅检测（超过5%记录提醒）
+- 简单涨跌幅检测（超过5%）
+- 有风险提醒时自动微信推送（Server酷 SCKEY）
 """
 import yfinance as yf
 import json
 import os
+import requests
 from datetime import datetime
 
-THRESHOLD = 0.05  # 5% 涨跌幅阈值
+THRESHOLD = 0.05  # 5% 阈值
 
 
 def load_previous_price():
@@ -21,6 +23,17 @@ def load_previous_price():
         except:
             return None
     return None
+
+
+def send_wechat(title, desp, sckey):
+    if not sckey:
+        return
+    url = f"https://sctapi.ftqq.com/{sckey}.send"
+    data = {"title": title, "desp": desp}
+    try:
+        requests.post(url, data=data, timeout=10)
+    except Exception:
+        pass  # 推送失败不影响主流程
 
 
 def main():
@@ -55,6 +68,20 @@ def main():
     
     with open("reports/spcx_latest.json", "w", encoding="utf-8") as f:
         json.dump(record, f, ensure_ascii=False, indent=2)
+    
+    # 如果有风险提醒，则发送微信
+    sckey = os.environ.get("SCKEY")
+    if alert and sckey:
+        title = "SPCX 价格风险提醒"
+        desp = f"""**{alert}**
+
+- 日期：{record['日期']}
+- 当前价格：{new_price}
+- 涨跌幅：{round(change_pct*100, 2)}%
+
+请及时关注市场动态。"""
+        send_wechat(title, desp, sckey)
+        print("微信推送已发送")
     
     print(f"SPCX监控更新完成: 价格={new_price}, 涨跌幅={change_pct}")
 
