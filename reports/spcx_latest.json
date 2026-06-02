@@ -1,5 +1,7 @@
 {
-  "date": "2026-06-02",
-  "price": null,
-  "note": "SPCX price tracking started post-IPO. Add news keywords or deviation alerts later if needed."
+  "日期": "2026-06-02",
+  "价格": null,
+  "涨跌幅": null,
+  "提醒": null,
+  "笔记": "SPCX价格追踪工作已启动。每天自动推送简报。"
 }
