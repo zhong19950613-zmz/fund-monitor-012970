@@ -24,6 +24,8 @@ jobs:
         run: pip install yfinance requests pyyaml
 
       - name: Run SPCX monitor
+        env:
+          SCKEY: ${{ secrets.SCKEY }}
         run: python scripts/spcx_monitor.py
 
       - name: Commit and push if changed
