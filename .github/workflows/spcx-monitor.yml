@@ -2,7 +2,7 @@ name: SPCX Minimal Monitor
 
 on:
   schedule:
-    - cron: '0 2 * * *'  # 每日北京时间10:00 运行（在6月12日后自动生效）
+    - cron: '0 2 * * *'  # 每日北京时10:00（江市6月12日后自动生效）
   workflow_dispatch:
 
 permissions:
@@ -12,47 +12,27 @@ jobs:
   spcx-price:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Python
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Fetch SPCX price & update simple record
-        run: |
-          python -c '
-import yfinance as yf
- import json
- import os
- from datetime import datetime
+      - name: Install dependencies
+        run: pip install yfinance requests pyyaml
 
-os.makedirs("reports", exist_ok=True)
-ticker = yf.Ticker("SPCX")
-hist = ticker.history(period="1d")
-if not hist.empty:
-    price = float(hist["Close"].iloc[-1])
-else:
-    price = None
+      - name: Run SPCX monitor
+        run: python scripts/spcx_monitor.py
 
-record = {
-    "date": str(datetime.now().date()),
-    "price": price,
-    "note": "SPCX price tracking started post-IPO. Add news keywords or deviation alerts later if needed."
-}
-with open("reports/spcx_latest.json", "w", encoding="utf-8") as f:
-    json.dump(record, f, ensure_ascii=False, indent=2)
-print(f"SPCX latest price updated: {price}")
-'
-
-      - name: Commit & push if changed
+      - name: Commit and push if changed
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add reports/spcx_latest.json || true
           if git diff --staged --quiet; then
-            echo "No changes"
+            echo "No changes to commit"
           else
             git commit -m "chore: SPCX price update $(date +%Y-%m-%d)"
             git push
